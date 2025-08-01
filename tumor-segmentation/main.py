@@ -16,7 +16,7 @@ import cv2
 import wandb
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
-from pytorch_lightning.callbacks import Callback
+from pytorch_lightning.callbacks import Callback, EarlyStopping
 
 DESIRED_WIDTH = 416
 DESIRED_HEIGHT = 992
@@ -576,6 +576,17 @@ def train(
 
     # Create callbacks
     callbacks = []
+
+    # Add early stopping callback
+    early_stopping = EarlyStopping(
+        monitor=config.get("early_stopping_monitor", "valid_loss"),
+        min_delta=config.get("early_stopping_min_delta", 0.001),
+        patience=config.get("early_stopping_patience", 7),
+        verbose=True,
+        mode=config.get("early_stopping_mode", "min"),
+    )
+    callbacks.append(early_stopping)
+
     if enable_wandb:
         image_callback = WandbImageCallback(
             log_frequency=2, max_samples=4, enable_wandb=True
@@ -665,6 +676,11 @@ if __name__ == "__main__":
         "beta": 0.25,
         "optimizer": "Adam",
         "scheduler": "CosineAnnealingLR",
+        # Early stopping parameters (optional)
+        "early_stopping_monitor": "valid_loss",  # can also use "valid_dataset_iou"
+        "early_stopping_patience": 7,  # number of epochs to wait for improvement
+        "early_stopping_min_delta": 0.001,  # minimum change to qualify as improvement
+        "early_stopping_mode": "min",  # "min" for loss, "max" for accuracy/IoU
     }
 
     # To disable wandb, set enable_wandb=False
