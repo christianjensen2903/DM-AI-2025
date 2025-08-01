@@ -297,13 +297,13 @@ class TumorModel(pl.LightningModule):
         loss = self.dice_weight * dice_loss + (1 - self.dice_weight) * bce_loss
 
         # Safety check for NaN/inf values
-        if torch.isnan(loss) or torch.isinf(loss):
+        if torch.isnan(loss).any() or torch.isinf(loss).any():
             print(f"Warning: Invalid loss value detected: {loss}")
             loss = torch.tensor(0.0, device=loss.device, requires_grad=True)
-        if torch.isnan(dice_loss) or torch.isinf(dice_loss):
+        if torch.isnan(dice_loss).any() or torch.isinf(dice_loss).any():
             print(f"Warning: Invalid dice_loss value detected: {dice_loss}")
             dice_loss = torch.tensor(0.0, device=dice_loss.device)
-        if torch.isnan(bce_loss) or torch.isinf(bce_loss):
+        if torch.isnan(bce_loss).any() or torch.isinf(bce_loss).any():
             print(f"Warning: Invalid bce_loss value detected: {bce_loss}")
             bce_loss = torch.tensor(0.0, device=bce_loss.device)
 
