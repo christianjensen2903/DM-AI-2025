@@ -1,0 +1,8 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+You are an expert in Machine Learning.
+When running experiments or other things remember to use the right virtual environment (.venv)
