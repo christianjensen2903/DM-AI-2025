@@ -185,7 +185,6 @@ def train(
     gradient_clip: float = 1.0,
     loss_weights: Tuple[float, float] = (1.0, 1.0),
     save_path: Optional[str] = "best_model.pt",
-    patience: int = 2,
 ):
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     total_steps = len(train_loader) * num_epochs
@@ -198,12 +197,12 @@ def train(
     loss_fns = (bce_loss_fn, ce_loss_fn)
 
     best_joint_acc = -1.0
-    epochs_no_improve = 0
 
     for epoch in range(1, num_epochs + 1):
         model.train()
         running_label_loss = 0.0
         running_topic_loss = 0.0
+        running_total_loss = 0.0
         running_batches = 0
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch} train", leave=False)
@@ -247,17 +246,24 @@ def train(
 
             running_label_loss += label_loss.item()
             running_topic_loss += topic_loss.item()
+            running_total_loss += loss.item()
             running_batches += 1
 
             pbar.set_postfix(
                 {
                     "lbl_loss": f"{running_label_loss/running_batches:.4f}",
                     "top_loss": f"{running_topic_loss/running_batches:.4f}",
+                    "total_loss": f"{running_total_loss/running_batches:.4f}",
                 }
             )
 
         train_metrics = evaluate(model, train_loader, device, loss_fns, loss_weights)
         val_metrics = evaluate(model, val_loader, device, loss_fns, loss_weights)
+
+        # Calculate epoch-averaged training losses
+        avg_train_label_loss = running_label_loss / running_batches
+        avg_train_topic_loss = running_topic_loss / running_batches
+        avg_train_total_loss = running_total_loss / running_batches
 
         print(
             f"[Epoch {epoch}] train joint_acc: {train_metrics['joint_acc']:.4f} | val joint_acc: {val_metrics['joint_acc']:.4f}"
@@ -266,13 +272,15 @@ def train(
             f"            label_acc: {val_metrics['label_acc']:.4f}, topic_acc: {val_metrics['topic_acc']:.4f}"
         )
         print(
+            f"            train losses -> label: {avg_train_label_loss:.4f}, topic: {avg_train_topic_loss:.4f}, total: {avg_train_total_loss:.4f}"
+        )
+        print(
             f"            val losses -> label: {val_metrics['label_loss']:.4f}, topic: {val_metrics['topic_loss']:.4f}"
         )
 
-        # early stopping on joint accuracy
+        # save model when joint accuracy improves
         if val_metrics["joint_acc"] > best_joint_acc + 1e-5:
             best_joint_acc = val_metrics["joint_acc"]
-            epochs_no_improve = 0
             if save_path:
                 torch.save(
                     {
@@ -287,11 +295,6 @@ def train(
                 print(
                     f"  Saved new best model (joint_acc={best_joint_acc:.4f}) to {save_path}"
                 )
-        else:
-            epochs_no_improve += 1
-            if epochs_no_improve >= patience:
-                print(f"Early stopping: no improvement for {patience} epochs.")
-                break
 
     return best_joint_acc
 
