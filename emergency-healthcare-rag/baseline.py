@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, Subset
 from transformers import AutoTokenizer, AutoModel, get_linear_schedule_with_warmup
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import wandb
 from statement_dataset import StatementDataset
 
 
@@ -176,7 +177,7 @@ def evaluate(
     return avg_metrics
 
 
-def train(
+def train_model(
     model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
@@ -193,6 +194,8 @@ def train(
     early_stopping_min_delta: float = 1e-5,
     early_stopping_monitor: str = "joint_acc",  # "joint_acc", "label_loss", "topic_loss", "total_loss"
     early_stopping_mode: str = "max",  # "max" for accuracy, "min" for loss
+    # wandb logging
+    log_wandb: bool = True,
 ):
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     total_steps = len(train_loader) * num_epochs
@@ -291,6 +294,32 @@ def train(
             f"            val losses -> label: {val_metrics['label_loss']:.4f}, topic: {val_metrics['topic_loss']:.4f}, total: {val_metrics['total_loss']:.4f}"
         )
 
+        # Log metrics to wandb
+        if log_wandb:
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "learning_rate": scheduler.get_last_lr()[0],
+                    # Training metrics
+                    "train/label_loss": avg_train_label_loss,
+                    "train/topic_loss": avg_train_topic_loss,
+                    "train/total_loss": avg_train_total_loss,
+                    "train/label_acc": train_metrics["label_acc"],
+                    "train/topic_acc": train_metrics["topic_acc"],
+                    "train/joint_acc": train_metrics["joint_acc"],
+                    # Validation metrics
+                    "val/label_loss": val_metrics["label_loss"],
+                    "val/topic_loss": val_metrics["topic_loss"],
+                    "val/total_loss": val_metrics["total_loss"],
+                    "val/label_acc": val_metrics["label_acc"],
+                    "val/topic_acc": val_metrics["topic_acc"],
+                    "val/joint_acc": val_metrics["joint_acc"],
+                    # Early stopping info
+                    "early_stopping/patience_counter": patience_counter,
+                    "early_stopping/best_monitor_value": best_monitor_value,
+                }
+            )
+
         # save model when joint accuracy improves
         if val_metrics["joint_acc"] > best_joint_acc + 1e-5:
             best_joint_acc = val_metrics["joint_acc"]
@@ -308,6 +337,17 @@ def train(
                 print(
                     f"  Saved new best model (joint_acc={best_joint_acc:.4f}) to {save_path}"
                 )
+
+                # Log model artifact to wandb
+                if log_wandb:
+                    artifact = wandb.Artifact(
+                        name=f"model-epoch-{epoch}",
+                        type="model",
+                        description=f"Best model checkpoint at epoch {epoch} with joint_acc={best_joint_acc:.4f}",
+                    )
+                    artifact.add_file(save_path)
+                    wandb.log_artifact(artifact)
+                    wandb.log({"best_joint_acc": best_joint_acc})
 
         # Early stopping logic
         # Get the current value of the monitored metric
@@ -365,52 +405,71 @@ def train(
     return best_joint_acc, early_stopped
 
 
-if __name__ == "__main__":
-    from transformers import AutoTokenizer
-    from torch.utils.data import DataLoader
+def train(
+    config: Dict,
+    project_name: str = "emergency-healthcare-rag",
+    experiment_name: Optional[str] = None,
+    enable_wandb: bool = True,
+):
+    """Train model with configuration dictionary"""
 
-    # configuration
-    ROOT = "data/train"  # path to your train directory
-    MODEL_NAME = "bert-base-uncased"
-    NUM_TOPICS = 115
-    BATCH_SIZE = 16
-    NUM_EPOCHS = 10
-    LEARNING_RATE = 2e-5
-    VAL_FRAC = 0.1
+    # Extract configuration parameters
+    ROOT = config.get("data_root", "data/train")
+    MODEL_NAME = config.get("model_name", "bert-base-uncased")
+    NUM_TOPICS = config.get("num_topics", 115)
+    BATCH_SIZE = config.get("batch_size", 16)
+    NUM_EPOCHS = config.get("num_epochs", 10)
+    LEARNING_RATE = config.get("learning_rate", 2e-5)
+    VAL_FRAC = config.get("val_frac", 0.1)
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # tokenizer and dataset
+    # Initialize wandb if enabled
+    if enable_wandb:
+        wandb.init(
+            project=project_name,
+            name=experiment_name,
+            config=config,
+        )
+
+    # Set up tokenizer and dataset
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     def tokenize_fn(text: str):
-        # return with batch dim=1 so collate handles squeezing
         return tokenizer(text, truncation=True, padding=False, return_tensors="pt")
 
-    # you need to have StatementDataset class in scope (from prior answer)
     dataset = StatementDataset(ROOT, text_transform=tokenize_fn, preload=False)
 
     train_loader, val_loader = make_train_val_dataloaders(
         dataset, val_frac=VAL_FRAC, batch_size=BATCH_SIZE
     )
 
-    model = BertMultiTask(model_name=MODEL_NAME, num_topics=NUM_TOPICS)
+    # Create and setup model
+    model = BertMultiTask(
+        model_name=MODEL_NAME,
+        num_topics=NUM_TOPICS,
+        dropout_prob=config.get("dropout_prob", 0.1),
+    )
     model.to(DEVICE)
 
-    # train: joint accuracy is used for best-model selection
-    best_acc, early_stopped = train(
+    # Train the model
+    best_acc, early_stopped = train_model(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         device=DEVICE,
         num_epochs=NUM_EPOCHS,
         lr=LEARNING_RATE,
-        save_path="best_multihead_bert.pt",
-        loss_weights=(1.0, 1.0),  # you can tune to emphasize topic vs label
-        # Early stopping parameters (similar to main.py)
-        early_stopping_patience=7,  # wait 7 epochs for improvement
-        early_stopping_min_delta=1e-5,  # minimum improvement threshold
-        early_stopping_monitor="total_loss",  # monitor total loss (can also use "joint_acc", "label_loss", "topic_loss")
-        early_stopping_mode="min",  # "max" for accuracy, "min" for loss
+        weight_decay=config.get("weight_decay", 0.01),
+        warmup_steps=config.get("warmup_steps", 0),
+        gradient_clip=config.get("gradient_clip", 1.0),
+        save_path=config.get("save_path", "best_multihead_bert.pt"),
+        loss_weights=tuple(config.get("loss_weights", [1.0, 1.0])),
+        # Early stopping parameters
+        early_stopping_patience=config.get("early_stopping_patience", 7),
+        early_stopping_min_delta=config.get("early_stopping_min_delta", 1e-5),
+        early_stopping_monitor=config.get("early_stopping_monitor", "joint_acc"),
+        early_stopping_mode=config.get("early_stopping_mode", "max"),
+        log_wandb=enable_wandb,
     )
 
     print(f"\nTraining finished with best joint accuracy: {best_acc:.4f}")
@@ -418,3 +477,77 @@ if __name__ == "__main__":
         print("Training was stopped early due to convergence.")
     else:
         print("Training completed all epochs.")
+
+    # Log final results
+    if enable_wandb:
+        wandb.log(
+            {"final_best_joint_acc": best_acc, "training_completed": not early_stopped}
+        )
+
+    return best_acc, early_stopped
+
+
+def run_experiment(
+    config: Dict,
+    project_name: str = "emergency-healthcare-rag",
+    experiment_name: Optional[str] = None,
+    enable_wandb: bool = True,
+):
+    """Run a single experiment with the given configuration"""
+    try:
+        return train(
+            config,
+            project_name=project_name,
+            experiment_name=experiment_name,
+            enable_wandb=enable_wandb,
+        )
+    finally:
+        if enable_wandb:
+            wandb.finish()
+
+
+if __name__ == "__main__":
+    # Configuration dictionary - similar to tumor segmentation main.py
+    config = {
+        # Data and model configuration
+        "data_root": "data/train",
+        "model_name": "bert-base-uncased",
+        "num_topics": 115,
+        "dropout_prob": 0.1,
+        # Training configuration
+        "batch_size": 16,
+        "num_epochs": 10,
+        "learning_rate": 2e-5,
+        "weight_decay": 0.01,
+        "warmup_steps": 0,
+        "gradient_clip": 1.0,
+        "val_frac": 0.1,
+        # Loss configuration
+        "loss_weights": [1.0, 1.0],  # [label_weight, topic_weight]
+        # Model saving
+        "save_path": "best_multihead_bert.pt",
+        # Early stopping parameters
+        "early_stopping_patience": 7,
+        "early_stopping_min_delta": 1e-5,
+        "early_stopping_monitor": "total_loss",  # "joint_acc", "label_loss", "topic_loss", "total_loss"
+        "early_stopping_mode": "min",  # "max" for accuracy, "min" for loss
+        # Metadata
+        "architecture": "BERT Multi-Task",
+        "optimizer": "AdamW",
+        "scheduler": "linear_warmup",
+    }
+
+    # Run the experiment with wandb logging
+    # To disable wandb, set enable_wandb=False
+    best_acc, early_stopped = run_experiment(
+        config, experiment_name="bert-multitask-baseline", enable_wandb=True
+    )
+
+    print(f"\nExperiment completed with best joint accuracy: {best_acc:.4f}")
+    if early_stopped:
+        print("Training was stopped early due to convergence.")
+    else:
+        print("Training completed all epochs.")
+
+    # Example of running without wandb:
+    # best_acc, early_stopped = run_experiment(config, experiment_name="baseline_no_wandb", enable_wandb=False)

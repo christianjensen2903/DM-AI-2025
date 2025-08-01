@@ -675,7 +675,7 @@ if __name__ == "__main__":
         # Early stopping parameters (optional)
         "early_stopping_monitor": "valid_loss",  # can also use "valid_dataset_iou"
         "early_stopping_patience": 7,  # number of epochs to wait for improvement
-        "early_stopping_min_delta": 0.001,  # minimum change to qualify as improvement
+        "early_stopping_min_delta": 0.005,  # minimum change to qualify as improvement
         "early_stopping_mode": "min",  # "min" for loss, "max" for accuracy/IoU
         # Model checkpoint parameters (optional)
         "checkpoint_monitor": "valid_dice_loss",  # metric to monitor for best model

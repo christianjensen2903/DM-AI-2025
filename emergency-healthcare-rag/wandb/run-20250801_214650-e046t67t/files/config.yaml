@@ -1,0 +1,85 @@
+_wandb:
+    value:
+        cli_version: 0.21.0
+        e:
+            xqs6qfmazgvhneojtnyu3vr2s1mlu4fr:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 7
+                    memoryGb: 16
+                    name: Apple M1
+                    pcpuCores: 4
+                    ramTotalBytes: "17179869184"
+                    swapTotalBytes: "1073741824"
+                codePath: emergency-healthcare-rag/baseline.py
+                codePathLocal: baseline.py
+                cpu_count: 8
+                cpu_count_logical: 8
+                disk:
+                    /:
+                        total: "245107195904"
+                        used: "175941672960"
+                email: cmj290300@gmail.com
+                executable: /Users/christianjensen/Documents/DM-i-AI-2025/.venv/bin/python
+                git:
+                    commit: 3750c775fe974ccb7529b557836ee9d901a1f757
+                    remote: https://github.com/christianjensen2903/DM-i-AI-2025.git
+                host: MacBookAir.utopia.net
+                memory:
+                    total: "17179869184"
+                os: macOS-15.5-arm64-arm-64bit-Mach-O
+                program: /Users/christianjensen/Documents/DM-i-AI-2025/emergency-healthcare-rag/baseline.py
+                python: CPython 3.13.3
+                root: /Users/christianjensen/Documents/DM-i-AI-2025/emergency-healthcare-rag
+                startedAt: "2025-08-01T19:46:50.011599Z"
+                writerId: xqs6qfmazgvhneojtnyu3vr2s1mlu4fr
+        m: []
+        python_version: 3.13.3
+        t:
+            "1":
+                - 1
+                - 5
+                - 11
+                - 49
+                - 53
+            "2":
+                - 1
+                - 5
+                - 11
+                - 41
+                - 49
+                - 53
+                - 63
+            "3":
+                - 2
+                - 13
+                - 16
+            "4": 3.13.3
+            "5": 0.21.0
+            "6": 4.54.1
+            "12": 0.21.0
+            "13": darwin-arm64
+architecture:
+    value: BERT Multi-Task
+batch_size:
+    value: 16
+device:
+    value: cpu
+early_stopping_monitor:
+    value: total_loss
+early_stopping_patience:
+    value: 7
+learning_rate:
+    value: 2e-05
+loss_weights:
+    value:
+        - 1
+        - 1
+model_name:
+    value: bert-base-uncased
+num_epochs:
+    value: 10
+num_topics:
+    value: 115
+val_frac:
+    value: 0.1
