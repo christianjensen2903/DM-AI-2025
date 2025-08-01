@@ -220,7 +220,7 @@ class TumorModel(pl.LightningModule):
         out_classes,
         t_max,
         learning_rate,
-        beta=0.5,
+        dice_weight=0.5,
         **kwargs,
     ):
         super().__init__()
@@ -241,7 +241,7 @@ class TumorModel(pl.LightningModule):
         self.out_classes = out_classes
         self.t_max = t_max
         self.learning_rate = learning_rate
-        self.beta = beta
+        self.dice_weight = dice_weight
 
         # Create both loss functions
         self.dice_loss_fn = smp.losses.DiceLoss(
@@ -275,7 +275,7 @@ class TumorModel(pl.LightningModule):
         bce_loss = self.bce_loss_fn(logits_mask, mask)
 
         # Combine losses with simplex (beta and 1-beta)
-        loss = self.beta * dice_loss + (1 - self.beta) * bce_loss
+        loss = self.dice_weight * dice_loss + (1 - self.dice_weight) * bce_loss
 
         prob_mask = logits_mask.sigmoid()
         pred_mask = (prob_mask > 0.5).float()
@@ -609,7 +609,7 @@ def train(
         out_classes=1,
         learning_rate=config["learning_rate"],
         t_max=config["max_epochs"] * len(train_loader),
-        beta=config.get("beta", 0.5),
+        dice_weight=config.get("dice_weight", 0.5),
     )
 
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
@@ -673,7 +673,7 @@ if __name__ == "__main__":
         "encoder": "efficientnet-b0",
         "encoder_weights": "imagenet",
         "loss_function": "DiceLoss+BCE",
-        "beta": 0.25,
+        "dice_weight": 0.25,
         "optimizer": "Adam",
         "scheduler": "CosineAnnealingLR",
         # Early stopping parameters (optional)
