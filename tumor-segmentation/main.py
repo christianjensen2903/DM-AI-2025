@@ -383,7 +383,8 @@ class TumorModel(pl.LightningModule):
         train_loss_info = self.shared_step(batch, "train")
         # append the metics of each step to the
         self.training_step_outputs.append(train_loss_info)
-        return train_loss_info
+        # Only return the loss for PyTorch Lightning logging
+        return train_loss_info["loss"]
 
     def on_train_epoch_end(self):
         self.shared_epoch_end(self.training_step_outputs, "train")
@@ -394,7 +395,8 @@ class TumorModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         valid_loss_info = self.shared_step(batch, "valid")
         self.validation_step_outputs.append(valid_loss_info)
-        return valid_loss_info
+        # Only return the loss for PyTorch Lightning logging
+        return valid_loss_info["loss"]
 
     def on_validation_epoch_end(self):
         self.shared_epoch_end(self.validation_step_outputs, "valid")
@@ -491,7 +493,8 @@ class TumorModel(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         test_loss_info = self.shared_step(batch, "test")
         self.test_step_outputs.append(test_loss_info)
-        return test_loss_info
+        # Only return the loss for PyTorch Lightning logging
+        return test_loss_info["loss"]
 
     def on_test_epoch_end(self):
         self.shared_epoch_end(self.test_step_outputs, "test")
