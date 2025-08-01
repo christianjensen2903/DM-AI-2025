@@ -83,6 +83,8 @@ wandb_logs/
 # Scrapy stuff:
 .scrapy
 
+*.pt
+
 # Sphinx documentation
 docs/_build/
 

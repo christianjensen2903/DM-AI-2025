@@ -2,7 +2,7 @@ from typing import Optional, Tuple, Dict
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Subset, random_split
+from torch.utils.data import DataLoader, Subset
 from transformers import AutoTokenizer, AutoModel, get_linear_schedule_with_warmup
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
@@ -112,6 +112,7 @@ def evaluate(
     model.eval()
     total_label_loss = 0.0
     total_topic_loss = 0.0
+    total_loss = 0.0
     total_batch = 0
     accs = {"label_acc": 0.0, "topic_acc": 0.0, "joint_acc": 0.0}
 
@@ -152,6 +153,7 @@ def evaluate(
 
             total_label_loss += label_loss.item()
             total_topic_loss += topic_loss.item()
+            total_loss += loss.item()
 
             batch_metrics = compute_metrics(
                 logit_label, logit_topic, label.to(device), topic.to(device)
@@ -166,6 +168,7 @@ def evaluate(
     avg_metrics = {
         "label_loss": total_label_loss / total_batch,
         "topic_loss": total_topic_loss / total_batch,
+        "total_loss": total_loss / total_batch,
         "label_acc": accs["label_acc"] / total_batch,
         "topic_acc": accs["topic_acc"] / total_batch,
         "joint_acc": accs["joint_acc"] / total_batch,
@@ -185,6 +188,11 @@ def train(
     gradient_clip: float = 1.0,
     loss_weights: Tuple[float, float] = (1.0, 1.0),
     save_path: Optional[str] = "best_model.pt",
+    # Early stopping parameters
+    early_stopping_patience: int = 7,
+    early_stopping_min_delta: float = 1e-5,
+    early_stopping_monitor: str = "joint_acc",  # "joint_acc", "label_loss", "topic_loss", "total_loss"
+    early_stopping_mode: str = "max",  # "max" for accuracy, "min" for loss
 ):
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     total_steps = len(train_loader) * num_epochs
@@ -197,6 +205,11 @@ def train(
     loss_fns = (bce_loss_fn, ce_loss_fn)
 
     best_joint_acc = -1.0
+
+    # Early stopping variables
+    best_monitor_value = float("-inf") if early_stopping_mode == "max" else float("inf")
+    patience_counter = 0
+    early_stopped = False
 
     for epoch in range(1, num_epochs + 1):
         model.train()
@@ -275,7 +288,7 @@ def train(
             f"            train losses -> label: {avg_train_label_loss:.4f}, topic: {avg_train_topic_loss:.4f}, total: {avg_train_total_loss:.4f}"
         )
         print(
-            f"            val losses -> label: {val_metrics['label_loss']:.4f}, topic: {val_metrics['topic_loss']:.4f}"
+            f"            val losses -> label: {val_metrics['label_loss']:.4f}, topic: {val_metrics['topic_loss']:.4f}, total: {val_metrics['total_loss']:.4f}"
         )
 
         # save model when joint accuracy improves
@@ -296,7 +309,60 @@ def train(
                     f"  Saved new best model (joint_acc={best_joint_acc:.4f}) to {save_path}"
                 )
 
-    return best_joint_acc
+        # Early stopping logic
+        # Get the current value of the monitored metric
+        if early_stopping_monitor == "joint_acc":
+            current_monitor_value = val_metrics["joint_acc"]
+        elif early_stopping_monitor == "label_loss":
+            current_monitor_value = val_metrics["label_loss"]
+        elif early_stopping_monitor == "topic_loss":
+            current_monitor_value = val_metrics["topic_loss"]
+        elif early_stopping_monitor == "total_loss":
+            current_monitor_value = val_metrics["total_loss"]
+        else:
+            raise ValueError(
+                f"Unknown early_stopping_monitor: {early_stopping_monitor}"
+            )
+
+        # Check if we have improvement
+        if early_stopping_mode == "max":
+            improvement = (
+                current_monitor_value > best_monitor_value + early_stopping_min_delta
+            )
+        else:  # "min"
+            improvement = (
+                current_monitor_value < best_monitor_value - early_stopping_min_delta
+            )
+
+        if improvement:
+            best_monitor_value = current_monitor_value
+            patience_counter = 0
+            print(
+                f"  Early stopping: new best {early_stopping_monitor}={current_monitor_value:.4f}"
+            )
+        else:
+            patience_counter += 1
+            print(
+                f"  Early stopping: no improvement, patience {patience_counter}/{early_stopping_patience}"
+            )
+
+        # Check if we should stop early
+        if patience_counter >= early_stopping_patience:
+            print(
+                f"  Early stopping triggered! No improvement in {early_stopping_monitor} for {early_stopping_patience} epochs."
+            )
+            early_stopped = True
+            break
+
+    # Print final summary
+    if early_stopped:
+        print(
+            f"\nTraining stopped early at epoch {epoch} due to no improvement in {early_stopping_monitor}"
+        )
+    else:
+        print(f"\nTraining completed all {num_epochs} epochs")
+
+    return best_joint_acc, early_stopped
 
 
 if __name__ == "__main__":
@@ -331,7 +397,7 @@ if __name__ == "__main__":
     model.to(DEVICE)
 
     # train: joint accuracy is used for best-model selection
-    _ = train(
+    best_acc, early_stopped = train(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
@@ -340,4 +406,15 @@ if __name__ == "__main__":
         lr=LEARNING_RATE,
         save_path="best_multihead_bert.pt",
         loss_weights=(1.0, 1.0),  # you can tune to emphasize topic vs label
+        # Early stopping parameters (similar to main.py)
+        early_stopping_patience=7,  # wait 7 epochs for improvement
+        early_stopping_min_delta=1e-5,  # minimum improvement threshold
+        early_stopping_monitor="total_loss",  # monitor total loss (can also use "joint_acc", "label_loss", "topic_loss")
+        early_stopping_mode="min",  # "max" for accuracy, "min" for loss
     )
+
+    print(f"\nTraining finished with best joint accuracy: {best_acc:.4f}")
+    if early_stopped:
+        print("Training was stopped early due to convergence.")
+    else:
+        print("Training completed all epochs.")
