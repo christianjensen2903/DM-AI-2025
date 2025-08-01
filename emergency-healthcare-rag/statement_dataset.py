@@ -107,7 +107,7 @@ class StatementDataset(Dataset):
 
         first_input = batch[0]["input"]
         collated_input: Any  # Allow both dict and list types
-        if isinstance(first_input, dict):
+        if isinstance(first_input, dict) or hasattr(first_input, "keys"):
             # assume HuggingFace-style dict of tensors; need to pad/stack manually or rely on tokenizer's batching
             collated_input = {}
             for k in first_input:
