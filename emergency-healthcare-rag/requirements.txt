@@ -6,3 +6,4 @@ loguru
 openai
 transformers
 wandb
+dotenv
