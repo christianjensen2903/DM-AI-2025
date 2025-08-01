@@ -256,11 +256,11 @@ class TumorModel(pl.LightningModule):
         self.learning_rate = learning_rate
         self.dice_weight = dice_weight
 
-        # Create both loss functions
+        # Create both loss functions with explicit reduction
         self.dice_loss_fn = smp.losses.DiceLoss(
             smp.losses.BINARY_MODE, from_logits=True
         )
-        self.bce_loss_fn = torch.nn.BCEWithLogitsLoss()
+        self.bce_loss_fn = torch.nn.BCEWithLogitsLoss(reduction="mean")
 
         self.training_step_outputs = []
         self.validation_step_outputs = []
@@ -287,8 +287,25 @@ class TumorModel(pl.LightningModule):
         dice_loss = self.dice_loss_fn(logits_mask, mask)
         bce_loss = self.bce_loss_fn(logits_mask, mask)
 
+        # Ensure losses are scalars (reduce if needed)
+        if dice_loss.numel() > 1:
+            dice_loss = dice_loss.mean()
+        if bce_loss.numel() > 1:
+            bce_loss = bce_loss.mean()
+
         # Combine losses with simplex (beta and 1-beta)
         loss = self.dice_weight * dice_loss + (1 - self.dice_weight) * bce_loss
+
+        # Safety check for NaN/inf values
+        if torch.isnan(loss) or torch.isinf(loss):
+            print(f"Warning: Invalid loss value detected: {loss}")
+            loss = torch.tensor(0.0, device=loss.device, requires_grad=True)
+        if torch.isnan(dice_loss) or torch.isinf(dice_loss):
+            print(f"Warning: Invalid dice_loss value detected: {dice_loss}")
+            dice_loss = torch.tensor(0.0, device=dice_loss.device)
+        if torch.isnan(bce_loss) or torch.isinf(bce_loss):
+            print(f"Warning: Invalid bce_loss value detected: {bce_loss}")
+            bce_loss = torch.tensor(0.0, device=bce_loss.device)
 
         prob_mask = logits_mask.sigmoid()
         pred_mask = (prob_mask > 0.5).float()
@@ -673,9 +690,9 @@ if __name__ == "__main__":
         "optimizer": "Adam",
         "scheduler": "CosineAnnealingLR",
         # Early stopping parameters (optional)
-        "early_stopping_monitor": "valid_loss",  # can also use "valid_dataset_iou"
+        "early_stopping_monitor": "valid_dice_loss",  # can also use "valid_dataset_iou"
         "early_stopping_patience": 7,  # number of epochs to wait for improvement
-        "early_stopping_min_delta": 0.005,  # minimum change to qualify as improvement
+        "early_stopping_min_delta": 0.001,  # minimum change to qualify as improvement
         "early_stopping_mode": "min",  # "min" for loss, "max" for accuracy/IoU
         # Model checkpoint parameters (optional)
         "checkpoint_monitor": "valid_dice_loss",  # metric to monitor for best model
