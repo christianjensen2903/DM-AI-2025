@@ -16,7 +16,7 @@ import cv2
 import wandb
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
-from pytorch_lightning.callbacks import Callback, EarlyStopping
+from pytorch_lightning.callbacks import Callback, EarlyStopping, ModelCheckpoint
 import signal
 import sys
 
@@ -590,6 +590,17 @@ def train(
     # Create callbacks
     callbacks = []
 
+    # Add model checkpoint callback to save best model
+    checkpoint_callback = ModelCheckpoint(
+        monitor=config.get("checkpoint_monitor", "valid_dataset_iou"),
+        mode=config.get("checkpoint_mode", "max"),
+        save_top_k=1,
+        save_last=True,
+        filename="best-{epoch:02d}-{valid_dataset_iou:.3f}",
+        verbose=True,
+    )
+    callbacks.append(checkpoint_callback)
+
     # Add early stopping callback
     early_stopping = EarlyStopping(
         monitor=config.get("early_stopping_monitor", "valid_loss"),
@@ -666,6 +677,9 @@ if __name__ == "__main__":
         "early_stopping_patience": 7,  # number of epochs to wait for improvement
         "early_stopping_min_delta": 0.001,  # minimum change to qualify as improvement
         "early_stopping_mode": "min",  # "min" for loss, "max" for accuracy/IoU
+        # Model checkpoint parameters (optional)
+        "checkpoint_monitor": "valid_dice_loss",  # metric to monitor for best model
+        "checkpoint_mode": "min",  # "max" for IoU/accuracy, "min" for loss
     }
 
     # To disable wandb, set enable_wandb=False
