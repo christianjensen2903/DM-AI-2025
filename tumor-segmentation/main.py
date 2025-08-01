@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from pytorch_lightning import Trainer
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 import albumentations as A
 import cv2
 import wandb
@@ -25,12 +25,17 @@ DESIRED_HEIGHT = 992
 class WandbImageCallback(Callback):
     """Custom callback to log sample images to wandb during training"""
 
-    def __init__(self, log_frequency=5, max_samples=4):
+    def __init__(self, log_frequency=5, max_samples=4, enable_wandb=True):
         self.log_frequency = log_frequency
         self.max_samples = max_samples
+        self.enable_wandb = enable_wandb
 
     def on_validation_epoch_end(self, trainer, pl_module):
-        if trainer.current_epoch % self.log_frequency == 0:
+        if (
+            self.enable_wandb
+            and trainer.current_epoch % self.log_frequency == 0
+            and hasattr(trainer.logger, "experiment")
+        ):
             # Get a batch from validation dataloader
             val_loader = trainer.val_dataloaders
             batch = next(iter(val_loader))
@@ -215,6 +220,8 @@ class TumorModel(pl.LightningModule):
         out_classes,
         t_max,
         learning_rate,
+        dice_weight=0.5,
+        bce_weight=0.5,
         **kwargs,
     ):
         super().__init__()
@@ -235,8 +242,14 @@ class TumorModel(pl.LightningModule):
         self.out_classes = out_classes
         self.t_max = t_max
         self.learning_rate = learning_rate
+        self.dice_weight = dice_weight
+        self.bce_weight = bce_weight
 
-        self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        # Create both loss functions
+        self.dice_loss_fn = smp.losses.DiceLoss(
+            smp.losses.BINARY_MODE, from_logits=True
+        )
+        self.bce_loss_fn = torch.nn.BCEWithLogitsLoss()
 
         self.training_step_outputs = []
         self.validation_step_outputs = []
@@ -259,7 +272,12 @@ class TumorModel(pl.LightningModule):
 
         logits_mask = self.forward(image)
 
-        loss = self.loss_fn(logits_mask, mask)
+        # Calculate individual losses
+        dice_loss = self.dice_loss_fn(logits_mask, mask)
+        bce_loss = self.bce_loss_fn(logits_mask, mask)
+
+        # Combine losses with weights
+        loss = self.dice_weight * dice_loss + self.bce_weight * bce_loss
 
         prob_mask = logits_mask.sigmoid()
         pred_mask = (prob_mask > 0.5).float()
@@ -269,13 +287,29 @@ class TumorModel(pl.LightningModule):
             pred_mask.long(), mask.long(), mode="binary"
         )
 
-        # Log loss for each step
+        # Log losses for each step
         self.log(
             f"{stage}_loss_step", loss, on_step=True, on_epoch=False, prog_bar=False
+        )
+        self.log(
+            f"{stage}_dice_loss_step",
+            dice_loss,
+            on_step=True,
+            on_epoch=False,
+            prog_bar=False,
+        )
+        self.log(
+            f"{stage}_bce_loss_step",
+            bce_loss,
+            on_step=True,
+            on_epoch=False,
+            prog_bar=False,
         )
 
         return {
             "loss": loss,
+            "dice_loss": dice_loss,
+            "bce_loss": bce_loss,
             "tp": tp,
             "fp": fp,
             "fn": fn,
@@ -302,13 +336,17 @@ class TumorModel(pl.LightningModule):
         # Empty images influence a lot on per_image_iou and much less on dataset_iou.
         dataset_iou = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
 
-        # Calculate average loss for the epoch
+        # Calculate average losses for the epoch
         avg_loss = torch.stack([x["loss"] for x in outputs]).mean()
+        avg_dice_loss = torch.stack([x["dice_loss"] for x in outputs]).mean()
+        avg_bce_loss = torch.stack([x["bce_loss"] for x in outputs]).mean()
 
         metrics = {
             f"{stage}_per_image_iou": per_image_iou,
             f"{stage}_dataset_iou": dataset_iou,
             f"{stage}_loss": avg_loss,
+            f"{stage}_dice_loss": avg_dice_loss,
+            f"{stage}_bce_loss": avg_bce_loss,
         }
 
         self.log_dict(metrics, prog_bar=True)
@@ -337,7 +375,9 @@ class TumorModel(pl.LightningModule):
 
     def log_sample_images(self, batch, stage="val", max_samples=4):
         """Log one composite figure per sample: image, GT, pred, TP/FP/FN overlay + dice"""
-        if not hasattr(self.logger, "experiment"):
+        if not hasattr(self.logger, "experiment") or not isinstance(
+            self.logger, WandbLogger
+        ):
             return
 
         images = batch["image"][:max_samples]  # expected shape (B, 1, H, W)
@@ -480,17 +520,23 @@ def train(
     config,
     project_name="tumor-segmentation",
     experiment_name=None,
+    enable_wandb=True,
 ):
-    # Initialize wandb
-    wandb_logger = WandbLogger(
-        project=project_name,
-        name=experiment_name,
-        log_model=True,  # Log model checkpoints
-        save_dir="./wandb_logs",
-    )
-
-    # Log hyperparameters
-    wandb_logger.experiment.config.update(config)
+    # Initialize logger
+    if enable_wandb:
+        logger = WandbLogger(
+            project=project_name,
+            name=experiment_name,
+            log_model=True,  # Log model checkpoints
+            save_dir="./wandb_logs",
+        )
+        # Log hyperparameters
+        logger.experiment.config.update(config)
+    else:
+        logger = TensorBoardLogger(
+            save_dir="./lightning_logs",
+            name=experiment_name or "default",
+        )
 
     image_dir = "data/patients/imgs"
     mask_dir = "data/patients/labels"
@@ -505,14 +551,15 @@ def train(
     )
 
     # Log dataset information
-    wandb_logger.experiment.config.update(
-        {
-            "train_samples": len(train_imgs),
-            "val_samples": len(val_imgs),
-            "control_samples": len(control),
-            "image_size": f"{DESIRED_HEIGHT}x{DESIRED_WIDTH}",
-        }
-    )
+    if enable_wandb:
+        logger.experiment.config.update(
+            {
+                "train_samples": len(train_imgs),
+                "val_samples": len(val_imgs),
+                "control_samples": len(control),
+                "image_size": f"{DESIRED_HEIGHT}x{DESIRED_WIDTH}",
+            }
+        )
 
     augmentation = get_train_augs()
 
@@ -536,14 +583,19 @@ def train(
     )
 
     # Create callbacks
-    image_callback = WandbImageCallback(log_frequency=2, max_samples=4)
+    callbacks = []
+    if enable_wandb:
+        image_callback = WandbImageCallback(
+            log_frequency=2, max_samples=4, enable_wandb=True
+        )
+        callbacks.append(image_callback)
 
     trainer = Trainer(
         max_epochs=config["max_epochs"],
         log_every_n_steps=1,
-        logger=wandb_logger,
+        logger=logger,
         enable_checkpointing=True,
-        callbacks=[image_callback],
+        callbacks=callbacks,
     )
 
     model = TumorModel(
@@ -554,24 +606,30 @@ def train(
         out_classes=1,
         learning_rate=config["learning_rate"],
         t_max=config["max_epochs"] * len(train_loader),
+        dice_weight=config.get("dice_weight", 0.5),
+        bce_weight=config.get("bce_weight", 0.5),
     )
 
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     # Log final model performance
-    wandb_logger.experiment.finish()
+    if enable_wandb:
+        logger.experiment.finish()
 
 
-def run_experiment(config, project_name="tumor-segmentation", experiment_name=None):
+def run_experiment(
+    config, project_name="tumor-segmentation", experiment_name=None, enable_wandb=True
+):
     """Run a single experiment with the given configuration"""
     train(
         config,
         project_name=project_name,
         experiment_name=experiment_name,
+        enable_wandb=enable_wandb,
     )
 
 
-def run_hyperparameter_sweep():
+def run_hyperparameter_sweep(enable_wandb=True):
     """Example function to run multiple experiments with different hyperparameters"""
     configs = [
         {
@@ -597,7 +655,9 @@ def run_hyperparameter_sweep():
     for i, config in enumerate(configs):
         experiment_name = f"experiment_{i+1}_lr{config['learning_rate']}_cp{config['control_prob']}_do{config['dropout']}"
         print(f"Running {experiment_name}")
-        run_experiment(config, experiment_name=experiment_name)
+        run_experiment(
+            config, experiment_name=experiment_name, enable_wandb=enable_wandb
+        )
 
 
 if __name__ == "__main__":
@@ -611,11 +671,19 @@ if __name__ == "__main__":
         "architecture": "unetplusplus",
         "encoder": "efficientnet-b0",
         "encoder_weights": "imagenet",
-        "loss_function": "DiceLoss",
+        "loss_function": "DiceLoss+BCE",
+        "dice_weight": 1,
+        "bce_weight": 2,
         "optimizer": "Adam",
         "scheduler": "CosineAnnealingLR",
     }
-    run_experiment(config, experiment_name="baseline_experiment")
+
+    # To disable wandb, set enable_wandb=False
+    # This will use TensorBoard logging instead
+    run_experiment(config, experiment_name="baseline_experiment", enable_wandb=False)
+
+    # Example of running without wandb:
+    # run_experiment(config, experiment_name="baseline_experiment_no_wandb", enable_wandb=False)
 
     # Uncomment the line below to run hyperparameter sweep
     # run_hyperparameter_sweep()
