@@ -17,9 +17,22 @@ import wandb
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from pytorch_lightning.callbacks import Callback, EarlyStopping
+import signal
+import sys
 
 DESIRED_WIDTH = 416
 DESIRED_HEIGHT = 992
+
+
+def signal_handler(sig, frame):
+    """Handle Ctrl+C gracefully by finishing wandb run"""
+    print("\n\nReceived interrupt signal. Finishing wandb run...")
+    try:
+        wandb.finish()
+    except Exception as e:
+        print(f"Warning: Error finishing wandb during interrupt: {e}")
+    print("Exiting...")
+    sys.exit(0)
 
 
 class WandbImageCallback(Callback):
@@ -614,55 +627,27 @@ def train(
 
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
-    # Log final model performance
-    if enable_wandb:
-        logger.experiment.finish()
-
 
 def run_experiment(
     config, project_name="tumor-segmentation", experiment_name=None, enable_wandb=True
 ):
     """Run a single experiment with the given configuration"""
-    train(
-        config,
-        project_name=project_name,
-        experiment_name=experiment_name,
-        enable_wandb=enable_wandb,
-    )
-
-
-def run_hyperparameter_sweep(enable_wandb=True):
-    """Example function to run multiple experiments with different hyperparameters"""
-    configs = [
-        {
-            "learning_rate": 0.0001,
-            "control_prob": 0.2,
-            "dropout": 0.2,
-            "max_epochs": 10,
-        },
-        {
-            "learning_rate": 0.0002,
-            "control_prob": 0.3,
-            "dropout": 0.1,
-            "max_epochs": 10,
-        },
-        {
-            "learning_rate": 0.00005,
-            "control_prob": 0.1,
-            "dropout": 0.3,
-            "max_epochs": 10,
-        },
-    ]
-
-    for i, config in enumerate(configs):
-        experiment_name = f"experiment_{i+1}_lr{config['learning_rate']}_cp{config['control_prob']}_do{config['dropout']}"
-        print(f"Running {experiment_name}")
-        run_experiment(
-            config, experiment_name=experiment_name, enable_wandb=enable_wandb
+    try:
+        train(
+            config,
+            project_name=project_name,
+            experiment_name=experiment_name,
+            enable_wandb=enable_wandb,
         )
+    finally:
+        if enable_wandb:
+            wandb.finish()
 
 
 if __name__ == "__main__":
+    # Register signal handler for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+
     # Run single experiment with great params
     config = {
         "learning_rate": 0.0001,
@@ -685,7 +670,7 @@ if __name__ == "__main__":
 
     # To disable wandb, set enable_wandb=False
     # This will use TensorBoard logging instead
-    run_experiment(config, experiment_name="baseline_experiment", enable_wandb=False)
+    run_experiment(config, experiment_name="baseline_experiment", enable_wandb=True)
 
     # Example of running without wandb:
     # run_experiment(config, experiment_name="baseline_experiment_no_wandb", enable_wandb=False)
