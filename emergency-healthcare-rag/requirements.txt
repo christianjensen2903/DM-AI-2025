@@ -15,3 +15,5 @@ scikit-learn
 sentence-transformers
 torch
 rank_bm25
+pandas
+datasets
