@@ -180,8 +180,8 @@ for c in chunk_index:
     chunks_by_topic.setdefault(c["topic_id"], []).append(c["text"])
 
 # 4. Build training examples (statement, positive) pairs
-train_statements_dir = base / "train" / "statements"
-train_answers_dir = base / "train" / "answers"
+train_statements_dir = base / "synthetic" / "statements"
+train_answers_dir = base / "synthetic" / "answers"
 
 train_examples = []
 for stmt_path in sorted(train_statements_dir.glob("statement_*.txt")):
