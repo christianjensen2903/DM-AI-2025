@@ -1,0 +1,1 @@
+CT scans produce images by rotating a single X-ray beam continuously around the patient, which directly generates three-dimensional images without the need for computer reconstruction.

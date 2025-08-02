@@ -1,0 +1,1 @@
+CT scans always display images oriented from head to feet, with the patient's right side appearing on the right side of the image.

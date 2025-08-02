@@ -1,0 +1,1 @@
+The 12-lead ECG includes six limb leads and six precordial leads, with limb leads assessing the heart's electrical activity in the vertical plane and precordial leads in the horizontal plane, allowing localization of ischemic changes according to coronary artery distribution.

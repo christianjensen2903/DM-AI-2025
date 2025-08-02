@@ -1,0 +1,1 @@
+Pulse oximetry noninvasively measures arterial oxygen saturation by detecting differences in light absorption between oxyhemoglobin and deoxyhemoglobin, providing a useful but indirect assessment of a patient’s oxygenation status.

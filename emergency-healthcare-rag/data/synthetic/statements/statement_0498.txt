@@ -1,0 +1,1 @@
+Pulse oximetry noninvasively measures arterial oxygen saturation by detecting differential light absorption between oxyhemoglobin and deoxyhemoglobin, but it cannot assess alveolar ventilation or detect early hypoventilation.

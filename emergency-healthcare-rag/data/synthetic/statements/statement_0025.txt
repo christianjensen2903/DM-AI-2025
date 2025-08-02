@@ -1,0 +1,1 @@
+Pulse oximetry noninvasively estimates arterial oxygen saturation by differentiating oxyhemoglobin from reduced hemoglobin via dual-wavelength light absorption but may overestimate oxygenation in the presence of carboxyhemoglobin or methemoglobin.

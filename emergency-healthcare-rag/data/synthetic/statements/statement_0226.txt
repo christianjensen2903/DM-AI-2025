@@ -1,0 +1,1 @@
+Arterial blood gas analysis directly measures blood pH, PaO2, and PaCO2, while bicarbonate and base excess are calculated values that together assess a patient’s oxygenation, ventilation, and acid-base status.

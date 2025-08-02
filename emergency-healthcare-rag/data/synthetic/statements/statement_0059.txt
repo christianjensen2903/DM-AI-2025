@@ -1,0 +1,1 @@
+Pulse oximetry provides a noninvasive measurement of arterial oxygen saturation by detecting pulsatile changes in hemoglobin oxygenation, but it cannot assess alveolar ventilation or detect early hypoventilation.

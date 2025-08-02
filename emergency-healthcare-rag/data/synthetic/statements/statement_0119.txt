@@ -1,0 +1,1 @@
+Pulse oximetry can accurately differentiate between oxyhemoglobin, deoxyhemoglobin, carboxyhemoglobin, and methemoglobin using only two wavelengths of light.

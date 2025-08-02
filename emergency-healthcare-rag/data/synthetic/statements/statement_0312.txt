@@ -1,0 +1,1 @@
+Pulse oximetry can reliably distinguish between oxyhemoglobin, carboxyhemoglobin, and methemoglobin using only two wavelengths of light, providing accurate oxygen saturation readings even in cases of carbon monoxide poisoning.

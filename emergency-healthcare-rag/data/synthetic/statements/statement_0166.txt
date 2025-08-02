@@ -1,0 +1,1 @@
+Pulse oximetry provides a noninvasive measurement of arterial oxygen saturation by detecting pulsatile arterial blood and differentiating oxyhemoglobin from deoxyhemoglobin using two wavelengths of light.
