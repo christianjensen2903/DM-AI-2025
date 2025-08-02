@@ -24,17 +24,6 @@ DESIRED_WIDTH = 416
 DESIRED_HEIGHT = 992
 
 
-def signal_handler(sig, frame):
-    """Handle Ctrl+C gracefully by finishing wandb run"""
-    print("\n\nReceived interrupt signal. Finishing wandb run...")
-    try:
-        wandb.finish()
-    except Exception as e:
-        print(f"Warning: Error finishing wandb during interrupt: {e}")
-    print("Exiting...")
-    sys.exit(0)
-
-
 class DiceLossThresholdEarlyStopping(Callback):
     """Custom callback to stop training if validation dice loss is not below threshold after specified epochs"""
 
@@ -266,9 +255,12 @@ class TumorModel(pl.LightningModule):
         self.learning_rate = learning_rate
         self.dice_weight = dice_weight
 
-        # Create both loss functions with explicit reduction
+        # Create both loss functions with explicit reduction and stability parameters
         self.dice_loss_fn = smp.losses.DiceLoss(
-            smp.losses.BINARY_MODE, from_logits=True
+            smp.losses.BINARY_MODE,
+            from_logits=True,
+            smooth=1e-6,  # Add smoothing to prevent division by zero
+            eps=1e-7,  # Add epsilon for numerical stability
         )
         self.bce_loss_fn = torch.nn.BCEWithLogitsLoss(reduction="mean")
 
@@ -298,6 +290,14 @@ class TumorModel(pl.LightningModule):
 
         logits_mask = self.forward(image)
 
+        # Safety check for logits output
+        if torch.isnan(logits_mask).any() or torch.isinf(logits_mask).any():
+            print(f"Warning: Invalid logits detected, replacing with zeros")
+            logits_mask = torch.zeros_like(logits_mask)
+
+        # Clamp logits to prevent extreme values
+        logits_mask = torch.clamp(logits_mask, min=-10.0, max=10.0)
+
         # Calculate individual losses
         dice_loss = self.dice_loss_fn(logits_mask, mask)
         bce_loss = self.bce_loss_fn(logits_mask, mask)
@@ -311,16 +311,16 @@ class TumorModel(pl.LightningModule):
         # Combine losses with simplex (beta and 1-beta)
         loss = self.dice_weight * dice_loss + (1 - self.dice_weight) * bce_loss
 
-        # Safety check for NaN/inf values
-        if torch.isnan(loss).any() or torch.isinf(loss).any():
+        # Safety check for NaN/inf values (handle scalar tensors properly)
+        if torch.isnan(loss) or torch.isinf(loss):
             print(f"Warning: Invalid loss value detected: {loss}")
             loss = torch.tensor(0.0, device=loss.device, requires_grad=True)
-        if torch.isnan(dice_loss).any() or torch.isinf(dice_loss).any():
+        if torch.isnan(dice_loss) or torch.isinf(dice_loss):
             print(f"Warning: Invalid dice_loss value detected: {dice_loss}")
-            dice_loss = torch.tensor(0.0, device=dice_loss.device)
-        if torch.isnan(bce_loss).any() or torch.isinf(bce_loss).any():
+            dice_loss = torch.tensor(0.0, device=dice_loss.device, requires_grad=True)
+        if torch.isnan(bce_loss) or torch.isinf(bce_loss):
             print(f"Warning: Invalid bce_loss value detected: {bce_loss}")
-            bce_loss = torch.tensor(0.0, device=bce_loss.device)
+            bce_loss = torch.tensor(0.0, device=bce_loss.device, requires_grad=True)
 
         prob_mask = logits_mask.sigmoid()
         pred_mask = (prob_mask > 0.5).float()
@@ -414,9 +414,18 @@ class TumorModel(pl.LightningModule):
         return
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        # Add eps parameter for numerical stability and weight_decay if available
+        optimizer_kwargs = {
+            "lr": self.learning_rate,
+            "eps": 1e-8,  # Improved numerical stability
+        }
+        # Add weight_decay if it's set in the model
+        if hasattr(self, "weight_decay"):
+            optimizer_kwargs["weight_decay"] = self.weight_decay
+
+        optimizer = torch.optim.Adam(self.parameters(), **optimizer_kwargs)
         scheduler = lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=self.t_max, eta_min=1e-5
+            optimizer, T_max=self.t_max, eta_min=1e-6  # Slightly higher minimum lr
         )
         return {
             "optimizer": optimizer,
@@ -560,6 +569,8 @@ def train(
         enable_checkpointing=False,
         callbacks=callbacks,
         precision=16,
+        gradient_clip_val=1.0,  # Add gradient clipping to prevent exploding gradients
+        gradient_clip_algorithm="norm",
     )
 
     model = TumorModel(
@@ -617,8 +628,6 @@ def run_experiment(
 
 
 if __name__ == "__main__":
-    # Register signal handler for graceful shutdown
-    signal.signal(signal.SIGINT, signal_handler)
 
     # Run single experiment with great params
     config = {
