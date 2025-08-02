@@ -1,6 +1,7 @@
 #emergency-healthcare-rag
 emergency-healthcare-rag/data/test
 emergency-healthcare-rag/data/validation
+emergency-healthcare-rag/checkpoints
 
 # Emily-specific files
 .idea
