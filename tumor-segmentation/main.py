@@ -35,33 +35,6 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-class WandbImageCallback(Callback):
-    """Custom callback to log sample images to wandb during training"""
-
-    def __init__(self, log_frequency=5, max_samples=4, enable_wandb=True):
-        self.log_frequency = log_frequency
-        self.max_samples = max_samples
-        self.enable_wandb = enable_wandb
-
-    def on_validation_epoch_end(self, trainer, pl_module):
-        if (
-            self.enable_wandb
-            and trainer.current_epoch % self.log_frequency == 0
-            and hasattr(trainer.logger, "experiment")
-        ):
-            # Get a batch from validation dataloader
-            val_loader = trainer.val_dataloaders
-            batch = next(iter(val_loader))
-
-            # Move batch to the same device as model
-            device = pl_module.device
-            batch = {k: v.to(device) for k, v in batch.items()}
-
-            pl_module.log_sample_images(
-                batch, stage="val", max_samples=self.max_samples
-            )
-
-
 class DiceLossThresholdEarlyStopping(Callback):
     """Custom callback to stop training if validation dice loss is not below threshold after specified epochs"""
 
@@ -423,93 +396,6 @@ class TumorModel(pl.LightningModule):
         self.validation_step_outputs.clear()
         return
 
-    def log_sample_images(self, batch, stage="val", max_samples=4):
-        """Log one composite figure per sample: image, GT, pred, TP/FP/FN overlay + dice"""
-        if not hasattr(self.logger, "experiment") or not isinstance(
-            self.logger, WandbLogger
-        ):
-            return
-
-        images = batch["image"][:max_samples]  # expected shape (B, 1, H, W)
-        masks = batch["mask"][:max_samples]  # expected shape (B, 1, H, W)
-
-        with torch.no_grad():
-            logits = self.forward(images)
-            probs = torch.sigmoid(logits)
-            preds = probs > 0.5  # bool mask
-
-        wandb_images = []
-        for i in range(images.shape[0]):
-            img = images[i, 0]  # (H, W)
-            gt = masks[i, 0]  # (H, W)
-            pred = preds[i, 0]  # (H, W) bool
-
-            # Dice
-            dice = dice_coef(gt, pred)
-
-            # Normalize image for display
-            img_disp = normalize_for_display(img)  # uint8 HxW
-            gt_disp = (gt > 0.5).to(torch.uint8).cpu().numpy() * 255
-            pred_disp = pred.to(torch.uint8).cpu().numpy() * 255
-
-            # TP / FP / FN
-            gt_bool = gt > 0.5
-            pred_bool = pred
-            tp = pred_bool & gt_bool
-            fp = pred_bool & ~gt_bool
-            fn = ~pred_bool & gt_bool
-
-            # Build overlay RGB: start with grayscale image as background
-            background = (
-                np.stack([img_disp] * 3, axis=-1).astype(float) / 255.0
-            )  # normalized 0..1
-
-            overlay = np.zeros_like(background)  # float
-            # green=TP, red=FP, blue=FN
-            overlay[..., 1][tp.cpu().numpy()] = 1.0  # TP
-            overlay[..., 0][fp.cpu().numpy()] = 1.0  # FP
-            overlay[..., 2][fn.cpu().numpy()] = 1.0  # FN
-
-            # Alpha blend overlay on background so you still see anatomy
-            alpha = 0.6
-            blended = np.clip((1 - alpha) * background + alpha * overlay, 0, 1)
-
-            # Composite figure
-            fig, axs = plt.subplots(1, 4, figsize=(12, 3.5))
-            axs[0].imshow(img_disp, cmap="gray")
-            axs[0].set_title("Input Image")
-            axs[0].axis("off")
-
-            axs[1].imshow(gt_disp, cmap="gray")
-            axs[1].set_title("Ground Truth")
-            axs[1].axis("off")
-
-            axs[2].imshow(pred_disp, cmap="gray")
-            axs[2].set_title("Prediction")
-            axs[2].axis("off")
-
-            axs[3].imshow(blended)
-            axs[3].set_title(f"Overlay (dice={dice:.2f})")
-            axs[3].axis("off")
-
-            # Legend (single legend on last panel)
-            legend_elements = [
-                Patch(facecolor="green", edgecolor="black", label="TP"),
-                Patch(facecolor="red", edgecolor="black", label="FP"),
-                Patch(facecolor="blue", edgecolor="black", label="FN"),
-            ]
-            axs[3].legend(handles=legend_elements, loc="lower right", framealpha=0.9)
-
-            plt.tight_layout()
-
-            wandb_images.append(
-                wandb.Image(fig, caption=f"{stage}_sample_{i} dice={dice:.2f}")
-            )
-            plt.close(fig)
-
-        # Log them as a batch list
-        self.logger.experiment.log({f"{stage}_samples": wandb_images})
-
     def test_step(self, batch, batch_idx):
         test_loss_info = self.shared_step(batch, "test")
         self.test_step_outputs.append(test_loss_info)
@@ -662,12 +548,6 @@ def train(
         monitor="valid_dice_loss",
     )
     callbacks.append(dice_threshold_stopping)
-
-    if enable_wandb:
-        image_callback = WandbImageCallback(
-            log_frequency=25, max_samples=4, enable_wandb=True
-        )
-        callbacks.append(image_callback)
 
     trainer = Trainer(
         max_epochs=config["max_epochs"],
