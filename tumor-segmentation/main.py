@@ -65,29 +65,10 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
-def dice_coef(y_true: torch.Tensor, y_pred: torch.Tensor, eps=1e-6):
-    y_true = y_true > 0.5
-    y_pred = y_pred > 0.5
-    inter = (y_true & y_pred).sum().float()
-    denom = y_true.sum().float() + y_pred.sum().float()
-    return (2 * inter / (denom + eps)).item()
-
-
-def normalize_for_display(tensor):
-    # tensor: 2D torch float tensor
-    t = tensor.clone().float()
-    t = t - t.min()
-    maxv = t.max()
-    if maxv > 0:
-        t = t / maxv
-    # return numpy 0..255 uint8
-    return (t * 255).clamp(0, 255).to(torch.uint8).cpu().numpy()
-
-
 def read_image_as_numpy(path):
     """Load image as numpy array with shape (H, W)"""
     image = Image.open(path).convert("L")  # Convert to grayscale
-    return np.array(image)
+    return np.array(image, dtype=np.uint8)
 
 
 def get_all_in_folder(dir):
@@ -150,9 +131,6 @@ def image_transform_numpy(image):
     # Crop if image is larger than desired size
     image = image[:DESIRED_HEIGHT, :DESIRED_WIDTH]
 
-    # Normalize to 0-1 range
-    image = image.astype(np.float32) / 255.0
-
     return image
 
 
@@ -207,6 +185,9 @@ class CustomDataset(Dataset):
             augmented = self.augmentation(image=image, mask=mask)
             image = augmented["image"]
             mask = augmented["mask"]
+
+        # Normalize to 0-1 range
+        image = image.astype(np.float32) / 255.0
 
         # Convert to tensors with channel dimension at the very end
         image = (
@@ -416,13 +397,14 @@ def get_train_augs() -> A.Compose:
                 scale_limit=0.10,
                 rotate_limit=5,
                 border_mode=cv2.BORDER_CONSTANT,
+                interpolation=cv2.INTER_NEAREST,
                 p=0.75,
                 fill=1,
             ),
             A.ElasticTransform(
                 alpha=5,
                 sigma=50,
-                interpolation=cv2.INTER_LINEAR,
+                interpolation=cv2.INTER_NEAREST,
                 border_mode=cv2.BORDER_CONSTANT,
                 approximate=True,
                 p=0.20,
@@ -433,8 +415,7 @@ def get_train_augs() -> A.Compose:
             A.RandomBrightnessContrast(
                 brightness_limit=0.05, contrast_limit=0.10, p=0.5
             ),
-        ],
-        additional_targets={"mask": "mask"},
+        ]
     )
 
 

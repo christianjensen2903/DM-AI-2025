@@ -50,13 +50,14 @@ def get_train_augs() -> A.Compose:
                 scale_limit=0.10,
                 rotate_limit=5,
                 border_mode=cv2.BORDER_CONSTANT,
+                interpolation=cv2.INTER_NEAREST,
                 p=0.75,
                 fill=1,
             ),
             A.ElasticTransform(
                 alpha=5,
                 sigma=50,
-                interpolation=cv2.INTER_LINEAR,
+                interpolation=cv2.INTER_NEAREST,
                 border_mode=cv2.BORDER_CONSTANT,
                 approximate=True,
                 p=0.20,
@@ -67,8 +68,7 @@ def get_train_augs() -> A.Compose:
             A.RandomBrightnessContrast(
                 brightness_limit=0.05, contrast_limit=0.10, p=0.5
             ),
-        ],
-        additional_targets={"mask": "mask"},
+        ]
     )
 
 
@@ -96,6 +96,15 @@ def main():
         augmented = augmentations(image=augmented_img, mask=augmented_mask)
         augmented_img = augmented["image"]
         augmented_mask = augmented["mask"]
+
+        # Check if mask is binary and has only 0 and 1
+        print(np.unique(augmented_mask))
+        if np.unique(augmented_mask).size > 2:
+            print(f"Mask for patient {i+1} is not binary")
+            print(np.unique(augmented_mask))
+            print(augmented_mask.shape)
+            print(augmented_mask)
+            raise ValueError("Mask is not binary")
 
         # Show original and augmented
         row = i
