@@ -1,44 +1,11 @@
 import json
-import os
 from pathlib import Path
-
-from langchain_core.documents import Document
 from langchain_community.retrievers import BM25Retriever
 from sklearn.metrics import accuracy_score
 
-
-def load_topics(topics_json_path: Path):
-    with topics_json_path.open("r", encoding="utf-8") as f:
-        topic2id = json.load(f)
-    id2topic = {v: k for k, v in topic2id.items()}
-    return topic2id, id2topic
-
-
-def load_cleaned_documents(root: Path, topic2id: dict):
-    """
-    Walks data/cleaned_topics/<topic_name>/*.md and returns list of Documents with metadata.
-    """
-    docs = []
-    for topic_dir in root.iterdir():
-        if not topic_dir.is_dir():
-            continue
-        topic_name = topic_dir.name
-        topic_id = topic2id.get(topic_name)
-        if topic_id is None:
-            print(f"Warning: topic '{topic_name}' not found in topics.json; skipping.")
-            continue
-        for md_path in topic_dir.glob("*.md"):
-            try:
-                text = md_path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                text = md_path.read_text(encoding="latin-1")
-            metadata = {
-                "source": str(md_path),
-                "topic_name": topic_name,
-                "topic_id": topic_id,
-            }
-            docs.append(Document(page_content=text, metadata=metadata))
-    return docs
+from utils import load_topics, load_cleaned_documents
+from normalized_retrievers import create_normalized_bm25_retriever
+from text_normalizer import normalize_medical_text
 
 
 def evaluate_topic_retrieval(retriever, statements_dir: Path, answers_dir: Path):
@@ -58,7 +25,8 @@ def evaluate_topic_retrieval(retriever, statements_dir: Path, answers_dir: Path)
         if true_topic_id is None:
             continue
 
-        # Retrieval
+        # Retrieval with normalized query
+        # Note: The normalized retriever will handle query normalization internally
         retrieved = retriever.invoke(statement_text)
         if len(retrieved) == 0:
             # fallback: predict nothing
@@ -88,13 +56,20 @@ def main():
     base = Path("data")
     topics_json = base / "topics.json"
     cleaned_root = base / "cleaned_topics"
-    statements_dir = base / "train" / "statements"
-    answers_dir = base / "train" / "answers"
+    statements_dir = base / "synthetic" / "statements"
+    answers_dir = base / "synthetic" / "answers"
 
     topic2id, _ = load_topics(topics_json)
-    docs = load_cleaned_documents(cleaned_root, topic2id)
 
+    # Load documents with normalization enabled
+    docs = load_cleaned_documents(cleaned_root, topic2id, normalize=False)
+    print(f"Loaded {len(docs)} normalized documents")
+
+    # Use normalized BM25 retriever
+    # retriever = create_normalized_bm25_retriever(docs, k=1)
     retriever = BM25Retriever.from_documents(docs, k=1)
+    print("Created normalized BM25 retriever")
+
     evaluate_topic_retrieval(retriever, statements_dir, answers_dir)
 
 

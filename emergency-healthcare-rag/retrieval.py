@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 from collections import defaultdict
 
@@ -12,39 +11,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from transformers import AutoTokenizer
 from sklearn.metrics import accuracy_score
 
-
-def load_topics(topics_json_path: Path):
-    with topics_json_path.open("r", encoding="utf-8") as f:
-        topic2id = json.load(f)
-    id2topic = {v: k for k, v in topic2id.items()}
-    return topic2id, id2topic
-
-
-def load_cleaned_documents(root: Path, topic2id: dict):
-    """
-    Walks data/cleaned_topics/<topic_name>/*.md and returns list of Documents with metadata.
-    """
-    docs = []
-    for topic_dir in root.iterdir():
-        if not topic_dir.is_dir():
-            continue
-        topic_name = topic_dir.name
-        topic_id = topic2id.get(topic_name)
-        if topic_id is None:
-            print(f"Warning: topic '{topic_name}' not found in topics.json; skipping.")
-            continue
-        for md_path in topic_dir.glob("*.md"):
-            try:
-                text = md_path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                text = md_path.read_text(encoding="latin-1")
-            metadata = {
-                "source": str(md_path),
-                "topic_name": topic_name,
-                "topic_id": topic_id,
-            }
-            docs.append(Document(page_content=text, metadata=metadata))
-    return docs
+from utils import load_topics, load_cleaned_documents
 
 
 tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-mpnet-base-v2")
@@ -158,9 +125,7 @@ def build_retrievers(docs):
     return ensemble
 
 
-def evaluate_topic_retrieval(
-    ensemble, statements_dir: Path, answers_dir: Path, id2topic: dict
-):
+def evaluate_topic_retrieval(ensemble, statements_dir: Path, answers_dir: Path):
     y_true = []
     y_pred = []
     missing = []
@@ -207,10 +172,6 @@ def evaluate_topic_retrieval(
     # Filter out any predictions that are -1 if desired (here we include them)
     accuracy = accuracy_score(y_true, y_pred)
     print(f"Total evaluated statements: {len(y_true)}")
-    if missing:
-        print(
-            f"Warning: missing answer JSONs for {len(missing)} statements (examples: {missing[:5]})"
-        )
     print(f"\nOverall topic prediction accuracy: {accuracy:.4f}")
 
     return {
@@ -223,34 +184,16 @@ def evaluate_topic_retrieval(
 def main():
     base = Path("data")
     topics_json = base / "topics.json"
-    cleaned_root = base / "cleaned_topics"  # adjust if your folder is named differently
+    cleaned_root = base / "cleaned_topics"
     statements_dir = base / "train" / "statements"
     answers_dir = base / "train" / "answers"
 
-    topic2id, id2topic = load_topics(topics_json)
-    print(f"Loaded {len(topic2id)} topics from {topics_json}")
+    topic2id, _ = load_topics(topics_json)
 
     documents = load_cleaned_documents(cleaned_root, topic2id)
-    if not documents:
-        raise RuntimeError(
-            "No documents loaded; check paths and topics.json consistency."
-        )
-    print(f"Loaded {len(documents)} documents from {cleaned_root}")
-
-    # Verify statement and answer directories exist
-    if not statements_dir.exists():
-        raise RuntimeError(f"Statements directory not found: {statements_dir}")
-    if not answers_dir.exists():
-        raise RuntimeError(f"Answers directory not found: {answers_dir}")
-
-    stmt_files = list(statements_dir.glob("statement_*.txt"))
-    answer_files = list(answers_dir.glob("statement_*.json"))
-    print(
-        f"Found {len(stmt_files)} statement files and {len(answer_files)} answer files"
-    )
 
     ensemble = build_retrievers(documents)
-    evaluate_topic_retrieval(ensemble, statements_dir, answers_dir, id2topic)
+    evaluate_topic_retrieval(ensemble, statements_dir, answers_dir)
 
 
 if __name__ == "__main__":
