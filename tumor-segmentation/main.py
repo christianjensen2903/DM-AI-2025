@@ -637,9 +637,22 @@ def train(
     )
     val_dataset = CustomDataset(images=val_imgs, masks=val_masks)
     train_loader = DataLoader(
-        train_dataset, batch_size=config["batch_size"], shuffle=True, drop_last=True
+        train_dataset,
+        batch_size=config["batch_size"],
+        shuffle=True,
+        drop_last=True,
+        num_workers=4,  # Enable multiprocessing for faster data loading
+        pin_memory=True,  # Faster GPU transfers
+        persistent_workers=True,  # Keep workers alive between epochs
     )
-    val_loader = DataLoader(val_dataset, batch_size=config["batch_size"], shuffle=False)
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=config["batch_size"],
+        shuffle=False,
+        num_workers=2,  # Fewer workers for validation since no augmentation
+        pin_memory=True,
+        persistent_workers=True,
+    )
 
     # Create callbacks
     callbacks = []
