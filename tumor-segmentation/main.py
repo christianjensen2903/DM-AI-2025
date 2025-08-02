@@ -645,16 +645,7 @@ def train(
     # Create callbacks
     callbacks = []
 
-    # Add model checkpoint callback to save best model
-    checkpoint_callback = ModelCheckpoint(
-        monitor=config.get("checkpoint_monitor", "valid_dataset_iou"),
-        mode=config.get("checkpoint_mode", "max"),
-        save_top_k=1,
-        save_last=True,
-        filename="best-{epoch:02d}-{valid_dataset_iou:.3f}",
-        verbose=True,
-    )
-    callbacks.append(checkpoint_callback)
+    # Note: ModelCheckpoint callback removed to save model only when training is complete
 
     # Add early stopping callback
     early_stopping = EarlyStopping(
@@ -700,6 +691,30 @@ def train(
 
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
+    # Save the model after training is complete
+    save_dir = "saved_models"
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Save the complete model (PyTorch Lightning checkpoint)
+    model_path = os.path.join(
+        save_dir, f"final_model_{experiment_name or 'default'}.ckpt"
+    )
+    trainer.save_checkpoint(model_path)
+    print(f"Final model saved to: {model_path}")
+
+    # Also save just the model state dict for easier loading
+    state_dict_path = os.path.join(
+        save_dir, f"final_model_state_dict_{experiment_name or 'default'}.pth"
+    )
+    torch.save(model.state_dict(), state_dict_path)
+    print(f"Model state dict saved to: {state_dict_path}")
+
+    # Log the model save paths if using wandb
+    if enable_wandb and hasattr(logger, "experiment"):
+        logger.experiment.log(
+            {"final_model_path": model_path, "final_state_dict_path": state_dict_path}
+        )
+
 
 def run_experiment(
     config, project_name="tumor-segmentation", experiment_name=None, enable_wandb=True
@@ -739,9 +754,6 @@ if __name__ == "__main__":
         "early_stopping_patience": 7,  # number of epochs to wait for improvement
         "early_stopping_min_delta": 0.001,  # minimum change to qualify as improvement
         "early_stopping_mode": "min",  # "min" for loss, "max" for accuracy/IoU
-        # Model checkpoint parameters (optional)
-        "checkpoint_monitor": "valid_dice_loss",  # metric to monitor for best model
-        "checkpoint_mode": "min",  # "max" for IoU/accuracy, "min" for loss
         # Dice loss threshold early stopping parameters
         "dice_threshold": 0.7,  # stop if validation dice loss is not below this value
         "dice_check_epoch": 25,  # check the threshold after this many epochs
