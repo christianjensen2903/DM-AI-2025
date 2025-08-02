@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 from langchain_core.documents import Document
 from langchain_community.retrievers import BM25Retriever
 from sklearn.metrics import accuracy_score
@@ -9,9 +10,12 @@ from normalized_retrievers import create_normalized_bm25_retriever
 from text_normalizer import normalize_medical_text
 import nltk
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 import rank_bm25
 
 nltk.download("punkt_tab")
+nltk.download("stopwords")
 
 
 def evaluate_topic_retrieval(
@@ -64,12 +68,44 @@ def evaluate_topic_retrieval(
     }
 
 
-def preprocess_func(text: str) -> list[str]:
-    return text.split()
+def preprocess_func(
+    text: str, remove_stopwords: bool = False, use_stemming: bool = False
+) -> list[str]:
+    """
+    Preprocess text by tokenizing and optionally removing stopwords and stemming.
+
+    Args:
+        text: Input text to preprocess
+        remove_stopwords: Whether to remove English stopwords
+        use_stemming: Whether to apply Porter stemming
+
+    Returns:
+        List of processed tokens
+    """
+    # Tokenize the text
+    tokens = word_tokenize(text.lower())
+
+    # Remove stopwords if requested
+    if remove_stopwords:
+        stop_words = set(stopwords.words("english"))
+        tokens = [token for token in tokens if token not in stop_words]
+
+    # Apply stemming if requested
+    if use_stemming:
+        stemmer = PorterStemmer()
+        tokens = [stemmer.stem(token) for token in tokens]
+
+    return tokens
 
 
-def test_bm25_params(k1: float = 1.5, b: float = 0.75, normalize: bool = False):
-    """Test BM25 with specific k1 and b parameters."""
+def test_bm25_params(
+    k1: float = 1.5,
+    b: float = 0.75,
+    normalize: bool = False,
+    remove_stopwords: bool = False,
+    use_stemming: bool = False,
+):
+    """Test BM25 with specific k1 and b parameters, and text preprocessing options."""
     base = Path("data")
     topics_json = base / "topics.json"
     cleaned_root = base / "cleaned_topics"
@@ -80,53 +116,52 @@ def test_bm25_params(k1: float = 1.5, b: float = 0.75, normalize: bool = False):
 
     # Load documents
     docs = load_cleaned_documents(cleaned_root, topic2id, normalize=normalize)
-    print(f"Loaded {len(docs)} documents (normalize={normalize})")
+    print(
+        f"Loaded {len(docs)} documents (normalize={normalize}, remove_stopwords={remove_stopwords}, use_stemming={use_stemming})"
+    )
 
     # Create BM25Plus retriever with specified parameters
     if normalize:
         from text_normalizer import normalize_medical_text
 
         texts_processed = [
-            preprocess_func(normalize_medical_text(t.page_content)) for t in docs
+            preprocess_func(
+                normalize_medical_text(t.page_content), remove_stopwords, use_stemming
+            )
+            for t in docs
         ]
     else:
-        texts_processed = [preprocess_func(t.page_content) for t in docs]
+        texts_processed = [
+            preprocess_func(t.page_content, remove_stopwords, use_stemming)
+            for t in docs
+        ]
 
-    retriever = rank_bm25.BM25Plus(corpus=texts_processed, k1=k1, b=b)
-    print(f"Created BM25Plus retriever with k1={k1}, b={b}")
+    retriever = rank_bm25.BM25Okapi(corpus=texts_processed, k1=k1, b=b)
 
-    # Update the global preprocess_func to handle normalization if enabled
+    # Temporarily modify the global preprocess_func to handle the current configuration
     global preprocess_func
-    if normalize:
-        from text_normalizer import normalize_medical_text
+    original_preprocess = preprocess_func
 
-        original_preprocess = preprocess_func
+    def configured_preprocess_func(text: str) -> list[str]:
+        if normalize:
+            from text_normalizer import normalize_medical_text
 
-        def normalized_preprocess_func(text: str) -> list[str]:
-            return original_preprocess(normalize_medical_text(text, is_query=True))
+            text = normalize_medical_text(text, is_query=True)
+        return original_preprocess(text, remove_stopwords, use_stemming)
 
-        preprocess_func = normalized_preprocess_func
+    preprocess_func = configured_preprocess_func  # type: ignore[assignment]
 
-    result = evaluate_topic_retrieval(retriever, docs, statements_dir, answers_dir)
-
-    # Restore original preprocess function
-    if normalize:
+    try:
+        result = evaluate_topic_retrieval(retriever, docs, statements_dir, answers_dir)
+    finally:
+        # Restore original preprocess function
         preprocess_func = original_preprocess
 
     return result
 
 
 def main():
-    """Main function with optimized parameters."""
-    print("Testing BM25 with default parameters...")
-    test_bm25_params()
-
-    print("\n" + "=" * 50)
-    print("To run hyperparameter tuning, use:")
-    print("python hyperparameter_tuning.py")
-    print("Or for quick tuning:")
-    print("python quick_tune.py")
-    print("=" * 50)
+    test_bm25_params(k1=3, b=1, normalize=True)
 
 
 if __name__ == "__main__":

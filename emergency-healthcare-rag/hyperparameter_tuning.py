@@ -1,7 +1,7 @@
 import json
 import itertools
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score
@@ -12,57 +12,33 @@ from nltk.tokenize import word_tokenize
 
 from utils import load_topics, load_cleaned_documents
 from text_normalizer import normalize_medical_text
+from bm25_retriever import preprocess_func
+
 
 nltk.download("punkt_tab", quiet=True)
 
 
-def preprocess_func(text: str) -> List[str]:
-    """Simple tokenization preprocessing function."""
-    return text.split()
-
-
-def evaluate_bm25_config(
-    k1: float,
-    b: float,
-    docs: List[Document],
+def preprocess_statements(
     statements_dir: Path,
     answers_dir: Path,
     normalize: bool = False,
-) -> Dict:
+    remove_stopwords: bool = True,
+    use_stemming: bool = True,
+) -> Tuple[List, List, List]:
     """
-    Evaluate a specific k1, b configuration for BM25.
-
-    Args:
-        k1: BM25 k1 parameter
-        b: BM25 b parameter
-        docs: List of documents
-        statements_dir: Directory containing statement files
-        answers_dir: Directory containing answer files
-        normalize: Whether to apply text normalization
+    Pre-process all statements to avoid redundant processing during parameter tuning.
 
     Returns:
-        Dictionary with evaluation results
+        Tuple of (processed_statements, true_labels, statement_paths)
     """
-    # Preprocess documents for BM25
-    if normalize:
-        texts_processed = [
-            preprocess_func(normalize_medical_text(doc.page_content)) for doc in docs
-        ]
-    else:
-        texts_processed = [preprocess_func(doc.page_content) for doc in docs]
-
-    # Create BM25Plus retriever with specified parameters
-    retriever = rank_bm25.BM25Okapi(corpus=texts_processed, k1=k1, b=b)
-
-    y_true = []
-    y_pred = []
-    missing = []
+    processed_statements = []
+    true_labels = []
+    statement_paths = []
 
     for stmt_path in sorted(statements_dir.glob("statement_*.txt")):
         base = stmt_path.stem  # e.g., "statement_0001"
         answer_path = answers_dir / f"{base}.json"
         if not answer_path.exists():
-            missing.append(base)
             continue
 
         statement_text = stmt_path.read_text(encoding="utf-8")
@@ -75,11 +51,55 @@ def evaluate_bm25_config(
         # Process query
         if normalize:
             statement_text_processed = preprocess_func(
-                normalize_medical_text(statement_text, is_query=True)
+                normalize_medical_text(statement_text, is_query=True),
+                remove_stopwords=remove_stopwords,
+                use_stemming=use_stemming,
             )
         else:
-            statement_text_processed = preprocess_func(statement_text)
+            statement_text_processed = preprocess_func(
+                statement_text,
+                remove_stopwords=remove_stopwords,
+                use_stemming=use_stemming,
+            )
 
+        processed_statements.append(statement_text_processed)
+        true_labels.append(true_topic_id)
+        statement_paths.append(stmt_path)
+
+    return processed_statements, true_labels, statement_paths
+
+
+def evaluate_bm25_config(
+    k1: float,
+    b: float,
+    docs: List[Document],
+    texts_processed: List[List[str]],
+    processed_statements: List[List[str]],
+    true_labels: List[int],
+) -> Dict:
+    """
+    Evaluate a specific k1, b configuration for BM25 using pre-processed texts.
+
+    Args:
+        k1: BM25 k1 parameter
+        b: BM25 b parameter
+        docs: List of documents (for metadata access)
+        texts_processed: Pre-processed document texts
+        processed_statements: Pre-processed statement texts
+        true_labels: True topic labels for statements
+
+    Returns:
+        Dictionary with evaluation results
+    """
+    # Create BM25Plus retriever with specified parameters
+    retriever = rank_bm25.BM25Okapi(corpus=texts_processed, k1=k1, b=b)
+
+    y_true = []
+    y_pred = []
+
+    for statement_text_processed, true_topic_id in zip(
+        processed_statements, true_labels
+    ):
         # Retrieve top document
         retrieved = retriever.get_top_n(statement_text_processed, docs, n=1)
         if len(retrieved) == 0:
@@ -103,7 +123,7 @@ def evaluate_bm25_config(
         "total_evaluated": len(y_true),
         "y_true": y_true,
         "y_pred": y_pred,
-        "missing_count": len(missing),
+        "missing_count": 0,  # Not tracking missing since pre-processed
     }
 
 
@@ -111,9 +131,11 @@ def grid_search_bm25_params(
     docs: List[Document],
     statements_dir: Path,
     answers_dir: Path,
-    k1_values: List[float] = None,
-    b_values: List[float] = None,
+    k1_values: Optional[List[float]] = None,
+    b_values: Optional[List[float]] = None,
     normalize: bool = False,
+    remove_stopwords: bool = True,
+    use_stemming: bool = True,
 ) -> pd.DataFrame:
     """
     Perform grid search over k1 and b parameters for BM25.
@@ -137,6 +159,32 @@ def grid_search_bm25_params(
         # Default b range: test around the default value of 0.75
         b_values = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
 
+    print(f"Pre-processing documents and statements...")
+
+    # Pre-process documents once
+    if normalize:
+        texts_processed = [
+            preprocess_func(normalize_medical_text(doc.page_content)) for doc in docs
+        ]
+    else:
+        texts_processed = [
+            preprocess_func(
+                doc.page_content,
+                remove_stopwords=remove_stopwords,
+                use_stemming=use_stemming,
+            )
+            for doc in docs
+        ]
+
+    # Pre-process statements once
+    processed_statements, true_labels, _ = preprocess_statements(
+        statements_dir, answers_dir, normalize, remove_stopwords, use_stemming
+    )
+
+    print(
+        f"Pre-processing complete. Documents: {len(texts_processed)}, Statements: {len(processed_statements)}"
+    )
+
     results = []
     total_combinations = len(k1_values) * len(b_values)
 
@@ -153,7 +201,12 @@ def grid_search_bm25_params(
 
         try:
             result = evaluate_bm25_config(
-                k1, b, docs, statements_dir, answers_dir, normalize
+                k1,
+                b,
+                docs,
+                texts_processed,
+                processed_statements,
+                true_labels,
             )
             results.append(result)
             print(f"Accuracy: {result['accuracy']:.4f}")
@@ -264,8 +317,11 @@ def main():
 
     # Define parameter ranges for tuning
     # You can customize these ranges based on your needs
-    k1_values = [0.5, 0.75, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0]
-    b_values = [0.0, 0.1, 0.2, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    k1_values = [2.0, 2.5, 3.0, 4.0]
+    b_values = [0.25, 0.5, 0.75, 1.0]
+
+    remove_stopwords = False
+    use_stemming = False
 
     # Option 1: Test without normalization
     print("\n" + "=" * 50)
@@ -278,6 +334,8 @@ def main():
         k1_values=k1_values,
         b_values=b_values,
         normalize=False,
+        remove_stopwords=remove_stopwords,
+        use_stemming=use_stemming,
     )
 
     print("\nResults without normalization:")
@@ -298,6 +356,8 @@ def main():
         k1_values=k1_values,
         b_values=b_values,
         normalize=True,
+        remove_stopwords=remove_stopwords,
+        use_stemming=use_stemming,
     )
 
     print("\nResults with normalization:")
