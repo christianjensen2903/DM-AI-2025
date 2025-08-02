@@ -63,6 +63,8 @@ def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+    cv2.setNumThreads(0)
+    cv2.ocl.setUseOpenCL(False)
 
 
 def read_image_as_numpy(path):
