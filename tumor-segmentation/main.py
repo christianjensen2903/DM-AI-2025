@@ -349,24 +349,7 @@ class TumorModel(pl.LightningModule):
             pred_mask.long(), mask.long(), mode="binary"
         )
 
-        # Log losses for each step
-        self.log(
-            f"{stage}_loss_step", loss, on_step=True, on_epoch=False, prog_bar=False
-        )
-        self.log(
-            f"{stage}_dice_loss_step",
-            dice_loss,
-            on_step=True,
-            on_epoch=False,
-            prog_bar=False,
-        )
-        self.log(
-            f"{stage}_bce_loss_step",
-            bce_loss,
-            on_step=True,
-            on_epoch=False,
-            prog_bar=False,
-        )
+        # Step-level logging disabled - only logging on epochs
 
         return {
             "loss": loss,
@@ -694,7 +677,6 @@ def train(
 
     trainer = Trainer(
         max_epochs=config["max_epochs"],
-        log_every_n_steps=1,
         logger=logger,
         enable_checkpointing=True,
         callbacks=callbacks,
