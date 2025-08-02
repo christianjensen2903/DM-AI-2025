@@ -96,6 +96,13 @@ class DiceLossThresholdEarlyStopping(Callback):
                 print(f"Warning: Metric '{self.monitor}' not found in logged metrics")
 
 
+def seed_worker(worker_id):
+    """Initialize random seeds for each worker to ensure reproducibility while maintaining parallelism"""
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 def dice_coef(y_true: torch.Tensor, y_pred: torch.Tensor, eps=1e-6):
     y_true = y_true > 0.5
     y_pred = y_pred > 0.5
@@ -234,10 +241,6 @@ class CustomDataset(Dataset):
             mask = self.masks[idx]
 
         if self.augmentation:
-            random_seed = random.randint(0, 2**32)
-            torch.manual_seed(random_seed)
-            random.seed(random_seed)
-
             # Apply augmentations to numpy arrays
             augmented = self.augmentation(image=image, mask=mask)
             image = augmented["image"]
@@ -627,6 +630,7 @@ def train(
         num_workers=4,  # Enable multiprocessing for faster data loading
         pin_memory=True,  # Faster GPU transfers
         persistent_workers=True,  # Keep workers alive between epochs
+        worker_init_fn=seed_worker,  # Proper worker-level seeding
     )
     val_loader = DataLoader(
         val_dataset,
@@ -635,6 +639,7 @@ def train(
         num_workers=2,  # Fewer workers for validation since no augmentation
         pin_memory=True,
         persistent_workers=True,
+        worker_init_fn=seed_worker,  # Proper worker-level seeding
     )
 
     # Create callbacks
