@@ -268,44 +268,6 @@ class TumorModel(pl.LightningModule):
         self.validation_step_outputs = []
         self.test_step_outputs = []
 
-        # Initialize model weights properly to prevent extreme initial values
-        self._init_weights()
-
-        # Register gradient hooks for debugging
-        self._register_gradient_hooks()
-
-    def _init_weights(self):
-        """Initialize model weights to prevent extreme initial values"""
-        for module in self.modules():
-            if isinstance(module, (torch.nn.Conv2d, torch.nn.ConvTranspose2d)):
-                torch.nn.init.kaiming_normal_(
-                    module.weight, mode="fan_out", nonlinearity="relu"
-                )
-                if module.bias is not None:
-                    torch.nn.init.constant_(module.bias, 0)
-            elif isinstance(module, torch.nn.BatchNorm2d):
-                torch.nn.init.constant_(module.weight, 1)
-                torch.nn.init.constant_(module.bias, 0)
-            elif isinstance(module, torch.nn.Linear):
-                torch.nn.init.normal_(module.weight, 0, 0.01)
-                if module.bias is not None:
-                    torch.nn.init.constant_(module.bias, 0)
-
-    def _register_gradient_hooks(self):
-        """Register hooks to detect problematic gradients"""
-
-        def gradient_hook(grad):
-            if grad is not None:
-                if torch.isnan(grad).any() or torch.isinf(grad).any():
-                    print(f"Warning: NaN/Inf gradient detected, replacing with zeros")
-                    return torch.zeros_like(grad)
-            return grad
-
-        # Register hooks on model parameters
-        for param in self.parameters():
-            if param.requires_grad:
-                param.register_hook(gradient_hook)
-
     def forward(self, image):
         return self.model(image)
 
@@ -318,60 +280,18 @@ class TumorModel(pl.LightningModule):
         h, w = image.shape[2:]
         assert h % 32 == 0 and w % 32 == 0
 
-        # Handle NaN/inf values in images
-        if torch.isnan(image).any() or torch.isinf(image).any():
-            print(f"Warning: Invalid values in input image, replacing with zeros")
-            image = torch.where(
-                torch.isnan(image) | torch.isinf(image),
-                torch.tensor(0.0, device=image.device),
-                image,
-            )
-
-        # Normalize image values to reasonable range
-        image = torch.clamp(image, min=-10.0, max=10.0)
-
         mask = batch["mask"]
-        # Handle NaN values before clamping
-        mask = torch.where(
-            torch.isnan(mask), torch.tensor(0.0, device=mask.device), mask
-        )
-        mask = mask.clamp(0, 1)
         assert mask.ndim == 4
         assert mask.max() <= 1 and mask.min() >= 0
 
         logits_mask = self.forward(image)
 
-        # Safety check for logits output
-        if torch.isnan(logits_mask).any() or torch.isinf(logits_mask).any():
-            print(f"Warning: Invalid logits detected, replacing with zeros")
-            logits_mask = torch.zeros_like(logits_mask)
-
-        # Clamp logits to prevent extreme values
-        logits_mask = torch.clamp(logits_mask, min=-10.0, max=10.0)
-
         # Calculate individual losses
         dice_loss = self.dice_loss_fn(logits_mask, mask)
         bce_loss = self.bce_loss_fn(logits_mask, mask)
 
-        # Ensure losses are scalars (reduce if needed)
-        if dice_loss.numel() > 1:
-            dice_loss = dice_loss.mean()
-        if bce_loss.numel() > 1:
-            bce_loss = bce_loss.mean()
-
         # Combine losses with simplex (beta and 1-beta)
         loss = self.dice_weight * dice_loss + (1 - self.dice_weight) * bce_loss
-
-        # Safety check for NaN/inf values (handle scalar tensors properly)
-        if torch.isnan(loss) or torch.isinf(loss):
-            print(f"Warning: Invalid loss value detected: {loss}")
-            loss = torch.tensor(0.0, device=loss.device, requires_grad=True)
-        if torch.isnan(dice_loss) or torch.isinf(dice_loss):
-            print(f"Warning: Invalid dice_loss value detected: {dice_loss}")
-            dice_loss = torch.tensor(0.0, device=dice_loss.device, requires_grad=True)
-        if torch.isnan(bce_loss) or torch.isinf(bce_loss):
-            print(f"Warning: Invalid bce_loss value detected: {bce_loss}")
-            bce_loss = torch.tensor(0.0, device=bce_loss.device, requires_grad=True)
 
         prob_mask = logits_mask.sigmoid()
         pred_mask = (prob_mask > 0.5).float()
@@ -476,7 +396,7 @@ class TumorModel(pl.LightningModule):
 
         optimizer = torch.optim.Adam(self.parameters(), **optimizer_kwargs)
         scheduler = lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=self.t_max, eta_min=1e-6  # Slightly higher minimum lr
+            optimizer, T_max=self.t_max, eta_min=1e-5
         )
         return {
             "optimizer": optimizer,
@@ -486,26 +406,6 @@ class TumorModel(pl.LightningModule):
                 "frequency": 1,
             },
         }
-
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure):
-        """Custom optimizer step with additional safety checks"""
-        # Check for problematic gradients before stepping
-        valid_gradients = True
-        for param in self.parameters():
-            if param.grad is not None:
-                if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
-                    print(
-                        f"Warning: Invalid gradients detected, skipping optimizer step"
-                    )
-                    valid_gradients = False
-                    break
-
-        if valid_gradients:
-            # Proceed with normal optimizer step
-            optimizer.step(closure=optimizer_closure)
-        else:
-            # Skip this step and zero gradients
-            optimizer.zero_grad()
 
 
 def get_train_augs() -> A.Compose:
@@ -693,6 +593,9 @@ def run_experiment(
             experiment_name=experiment_name,
             enable_wandb=enable_wandb,
         )
+    except Exception as e:
+        print(f"Error in run_experiment: {e}")
+        raise e
     finally:
         if enable_wandb:
             wandb.finish()
