@@ -688,7 +688,7 @@ def train(
 
     if enable_wandb:
         image_callback = WandbImageCallback(
-            log_frequency=2, max_samples=4, enable_wandb=True
+            log_frequency=25, max_samples=4, enable_wandb=True
         )
         callbacks.append(image_callback)
 
