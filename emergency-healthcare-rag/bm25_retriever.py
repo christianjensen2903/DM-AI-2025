@@ -120,21 +120,9 @@ def test_bm25_params(
         f"Loaded {len(docs)} documents (normalize={normalize}, remove_stopwords={remove_stopwords}, use_stemming={use_stemming})"
     )
 
-    # Create BM25Plus retriever with specified parameters
-    if normalize:
-        from text_normalizer import normalize_medical_text
-
-        texts_processed = [
-            preprocess_func(
-                normalize_medical_text(t.page_content), remove_stopwords, use_stemming
-            )
-            for t in docs
-        ]
-    else:
-        texts_processed = [
-            preprocess_func(t.page_content, remove_stopwords, use_stemming)
-            for t in docs
-        ]
+    texts_processed = [
+        preprocess_func(t.page_content, remove_stopwords, use_stemming) for t in docs
+    ]
 
     retriever = rank_bm25.BM25Okapi(corpus=texts_processed, k1=k1, b=b)
 
@@ -161,7 +149,7 @@ def test_bm25_params(
 
 
 def main():
-    test_bm25_params(k1=3, b=1, normalize=True)
+    test_bm25_params(k1=2.5, b=0.75, normalize=True)
 
 
 if __name__ == "__main__":

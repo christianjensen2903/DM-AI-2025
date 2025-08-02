@@ -164,7 +164,12 @@ def grid_search_bm25_params(
     # Pre-process documents once
     if normalize:
         texts_processed = [
-            preprocess_func(normalize_medical_text(doc.page_content)) for doc in docs
+            preprocess_func(
+                normalize_medical_text(doc.page_content),
+                remove_stopwords=remove_stopwords,
+                use_stemming=use_stemming,
+            )
+            for doc in docs
         ]
     else:
         texts_processed = [
