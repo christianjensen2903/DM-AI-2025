@@ -48,16 +48,27 @@ def load_cleaned_documents(root: Path, topic2id: dict):
 
 
 def build_retrievers(docs):
-    # Optional splitting if docs are large; here we assume they are manageable
+    # Text splitting for better retrieval granularity
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,  # Size of each chunk in characters
+        chunk_overlap=200,  # Overlap between chunks to maintain context
+        length_function=len,
+        separators=["\n\n", "\n", " ", ""],  # Split on paragraphs, lines, spaces
+    )
+
+    # Split documents into chunks
+    split_docs = text_splitter.split_documents(docs)
+    print(f"Split {len(docs)} documents into {len(split_docs)} chunks")
+
     # embeddings - using sentence-transformers for quick start
     embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
 
-    # Dense vector store
-    vectorstore = Chroma.from_documents(docs, embeddings)  # in-memory
+    # Dense vector store using chunked documents
+    vectorstore = Chroma.from_documents(split_docs, embeddings)  # in-memory
     dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
-    # Sparse BM25 retriever
-    bm25_retriever = BM25Retriever.from_documents(docs, k=5)
+    # Sparse BM25 retriever using chunked documents
+    bm25_retriever = BM25Retriever.from_documents(split_docs, k=5)
 
     # Ensemble: adjust weights as needed
     ensemble = EnsembleRetriever(
