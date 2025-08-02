@@ -190,6 +190,7 @@ class CustomDataset(Dataset):
 
         # Normalize to 0-1 range
         image = image.astype(np.float32) / 255.0
+        mask = mask.astype(np.float32) / 255.0
 
         # Convert to tensors with channel dimension at the very end
         image = (
