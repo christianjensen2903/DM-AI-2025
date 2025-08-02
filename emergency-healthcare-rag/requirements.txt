@@ -7,3 +7,11 @@ openai
 transformers
 wandb
 dotenv
+langchain
+langchain_community
+langchain-huggingface
+chromadb
+scikit-learn
+sentence-transformers
+torch
+rank_bm25
