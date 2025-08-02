@@ -62,6 +62,40 @@ class WandbImageCallback(Callback):
             )
 
 
+class DiceLossThresholdEarlyStopping(Callback):
+    """Custom callback to stop training if validation dice loss is not below threshold after specified epochs"""
+
+    def __init__(self, threshold=0.8, check_epoch=25, monitor="valid_dice_loss"):
+        self.threshold = threshold
+        self.check_epoch = check_epoch
+        self.monitor = monitor
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        # Check if we've reached the specified epoch
+        if (
+            trainer.current_epoch + 1 == self.check_epoch
+        ):  # +1 because epochs are 0-indexed
+            # Get the current validation dice loss
+            current_metrics = trainer.logged_metrics
+            if self.monitor in current_metrics:
+                current_dice_loss = current_metrics[self.monitor].item()
+                print(
+                    f"\nEpoch {self.check_epoch}: Validation dice loss = {current_dice_loss:.4f}"
+                )
+
+                if current_dice_loss >= self.threshold:
+                    print(
+                        f"Stopping training: Validation dice loss ({current_dice_loss:.4f}) is not below {self.threshold} after {self.check_epoch} epochs"
+                    )
+                    trainer.should_stop = True
+                else:
+                    print(
+                        f"Continuing training: Validation dice loss ({current_dice_loss:.4f}) is below {self.threshold}"
+                    )
+            else:
+                print(f"Warning: Metric '{self.monitor}' not found in logged metrics")
+
+
 def dice_coef(y_true: torch.Tensor, y_pred: torch.Tensor, eps=1e-6):
     y_true = y_true > 0.5
     y_pred = y_pred > 0.5
@@ -631,6 +665,14 @@ def train(
     )
     callbacks.append(early_stopping)
 
+    # Add custom dice loss threshold early stopping
+    dice_threshold_stopping = DiceLossThresholdEarlyStopping(
+        threshold=config.get("dice_threshold", 0.8),
+        check_epoch=config.get("dice_check_epoch", 25),
+        monitor="valid_dice_loss",
+    )
+    callbacks.append(dice_threshold_stopping)
+
     if enable_wandb:
         image_callback = WandbImageCallback(
             log_frequency=2, max_samples=4, enable_wandb=True
@@ -683,7 +725,7 @@ if __name__ == "__main__":
     config = {
         "learning_rate": 0.0001,
         "control_prob": 0,
-        "max_epochs": 10,
+        "max_epochs": 50,  # Increased to allow for the 25-epoch check
         "batch_size": 2,
         "architecture": "unetplusplus",
         "encoder": "efficientnet-b0",
@@ -700,6 +742,9 @@ if __name__ == "__main__":
         # Model checkpoint parameters (optional)
         "checkpoint_monitor": "valid_dice_loss",  # metric to monitor for best model
         "checkpoint_mode": "min",  # "max" for IoU/accuracy, "min" for loss
+        # Dice loss threshold early stopping parameters
+        "dice_threshold": 0.7,  # stop if validation dice loss is not below this value
+        "dice_check_epoch": 25,  # check the threshold after this many epochs
     }
 
     # To disable wandb, set enable_wandb=False
