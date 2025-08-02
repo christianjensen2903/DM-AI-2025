@@ -287,7 +287,12 @@ class TumorModel(pl.LightningModule):
         h, w = image.shape[2:]
         assert h % 32 == 0 and w % 32 == 0
 
-        mask = batch["mask"].clamp(0, 1)
+        mask = batch["mask"]
+        # Handle NaN values before clamping
+        mask = torch.where(
+            torch.isnan(mask), torch.tensor(0.0, device=mask.device), mask
+        )
+        mask = mask.clamp(0, 1)
         assert mask.ndim == 4
         assert mask.max() <= 1 and mask.min() >= 0
 
