@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 from collections import defaultdict
 
-from langchain.docstore.document import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
@@ -47,18 +47,113 @@ def load_cleaned_documents(root: Path, topic2id: dict):
     return docs
 
 
-def build_retrievers(docs):
-    # Text splitting for better retrieval granularity
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,  # Size of each chunk in characters
-        chunk_overlap=200,  # Overlap between chunks to maintain context
+def split_documents_by_sections(docs, max_section_length=3000):
+    """
+    Split documents by markdown section headers (##) to create semantically coherent chunks.
+    If a section is too long, it will be further split using RecursiveCharacterTextSplitter.
+    """
+    split_docs = []
+
+    # Fallback splitter for very long sections
+    fallback_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=200,
         length_function=len,
-        separators=["\n\n", "\n", " ", ""],  # Split on paragraphs, lines, spaces
+        separators=["\n\n", "\n", ". ", " ", ""],
     )
 
-    # Split documents into chunks
-    split_docs = text_splitter.split_documents(docs)
-    print(f"Split {len(docs)} documents into {len(split_docs)} chunks")
+    for doc in docs:
+        content = doc.page_content
+        sections = []
+        current_section = ""
+        current_header = ""
+
+        lines = content.split("\n")
+
+        for line in lines:
+            # Check if line is a section header (starts with ##)
+            if line.strip().startswith("## "):
+                # Save previous section if it exists
+                if current_section.strip():
+                    section_content = current_section.strip()
+
+                    # If section is too long, split it further
+                    if len(section_content) > max_section_length:
+                        section_doc = Document(
+                            page_content=section_content,
+                            metadata={
+                                **doc.metadata,
+                                "section_header": current_header,
+                                "section_type": "content",
+                            },
+                        )
+                        subsections = fallback_splitter.split_documents([section_doc])
+                        # Add subsection info to metadata
+                        for i, subsection in enumerate(subsections):
+                            subsection.metadata["subsection_index"] = i
+                            subsection.metadata["total_subsections"] = len(subsections)
+                        sections.extend(subsections)
+                    else:
+                        section_doc = Document(
+                            page_content=section_content,
+                            metadata={
+                                **doc.metadata,
+                                "section_header": current_header,
+                                "section_type": "content",
+                            },
+                        )
+                        sections.append(section_doc)
+
+                # Start new section
+                current_header = line.strip()
+                current_section = line + "\n"
+            else:
+                current_section += line + "\n"
+
+        # Don't forget the last section
+        if current_section.strip():
+            section_content = current_section.strip()
+
+            # If section is too long, split it further
+            if len(section_content) > max_section_length:
+                section_doc = Document(
+                    page_content=section_content,
+                    metadata={
+                        **doc.metadata,
+                        "section_header": current_header,
+                        "section_type": "content",
+                    },
+                )
+                subsections = fallback_splitter.split_documents([section_doc])
+                # Add subsection info to metadata
+                for i, subsection in enumerate(subsections):
+                    subsection.metadata["subsection_index"] = i
+                    subsection.metadata["total_subsections"] = len(subsections)
+                sections.extend(subsections)
+            else:
+                section_doc = Document(
+                    page_content=section_content,
+                    metadata={
+                        **doc.metadata,
+                        "section_header": current_header,
+                        "section_type": "content",
+                    },
+                )
+                sections.append(section_doc)
+
+        # If no sections found, keep original document
+        if not sections:
+            split_docs.append(doc)
+        else:
+            split_docs.extend(sections)
+
+    return split_docs
+
+
+def build_retrievers(docs):
+    # Split documents by sections for better semantic coherence
+    split_docs = split_documents_by_sections(docs)
+    print(f"Split {len(docs)} documents into {len(split_docs)} section-based chunks")
 
     # embeddings - using sentence-transformers for quick start
     embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
