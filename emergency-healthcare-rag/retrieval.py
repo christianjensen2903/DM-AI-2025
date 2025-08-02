@@ -50,9 +50,7 @@ def load_cleaned_documents(root: Path, topic2id: dict):
 def build_retrievers(docs):
     # Optional splitting if docs are large; here we assume they are manageable
     # embeddings - using sentence-transformers for quick start
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
 
     # Dense vector store
     vectorstore = Chroma.from_documents(docs, embeddings)  # in-memory
@@ -102,21 +100,12 @@ def evaluate_topic_retrieval(
 
     # Filter out any predictions that are -1 if desired (here we include them)
     accuracy = accuracy_score(y_true, y_pred)
-    report = classification_report(
-        y_true,
-        y_pred,
-        labels=sorted(set(y_true)),
-        target_names=[id2topic.get(i, f"ID_{i}") for i in sorted(set(y_true))],
-        zero_division=0,
-    )
     print(f"Total evaluated statements: {len(y_true)}")
     if missing:
         print(
             f"Warning: missing answer JSONs for {len(missing)} statements (examples: {missing[:5]})"
         )
-    print(f"\nOverall topic prediction accuracy: {accuracy:.4f}\n")
-    print("Per-topic breakdown:\n")
-    print(report)
+    print(f"\nOverall topic prediction accuracy: {accuracy:.4f}")
 
     return {
         "accuracy": accuracy,
@@ -129,8 +118,8 @@ def main():
     base = Path("data")
     topics_json = base / "topics.json"
     cleaned_root = base / "cleaned_topics"  # adjust if your folder is named differently
-    statements_dir = base / "synthetic" / "statements"
-    answers_dir = base / "synthetic" / "answers"
+    statements_dir = base / "train" / "statements"
+    answers_dir = base / "train" / "answers"
 
     topic2id, id2topic = load_topics(topics_json)
     print(f"Loaded {len(topic2id)} topics from {topics_json}")
