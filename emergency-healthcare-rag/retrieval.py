@@ -199,8 +199,23 @@ def evaluate_topic_retrieval(
             y_true.append(true_topic_id)
             y_pred.append(-1)
             continue
-        top = retrieved[0]
-        pred_topic_id = top.metadata.get("topic_id", -1)
+
+        # Vote among top 3 results instead of just taking the best
+        top_k = min(3, len(retrieved))
+        topic_votes = defaultdict(int)
+
+        for i in range(top_k):
+            result_topic_id = retrieved[i].metadata.get("topic_id", -1)
+            if result_topic_id != -1:  # Only count valid topic IDs
+                topic_votes[result_topic_id] += 1
+
+        if not topic_votes:
+            # No valid topics found in top results
+            pred_topic_id = -1
+        else:
+            # Select topic with most votes (ties go to first occurrence)
+            pred_topic_id = max(topic_votes.items(), key=lambda x: x[1])[0]
+
         y_true.append(true_topic_id)
         y_pred.append(pred_topic_id)
 
