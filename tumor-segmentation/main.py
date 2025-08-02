@@ -559,6 +559,7 @@ def train(
         logger=logger,
         enable_checkpointing=False,
         callbacks=callbacks,
+        precision=16,
     )
 
     model = TumorModel(
