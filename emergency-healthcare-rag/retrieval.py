@@ -9,8 +9,8 @@ from langchain.retrievers import EnsembleRetriever
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
 from langchain_huggingface import HuggingFaceEmbeddings
-
-from sklearn.metrics import accuracy_score, classification_report
+from transformers import AutoTokenizer
+from sklearn.metrics import accuracy_score
 
 
 def load_topics(topics_json_path: Path):
@@ -47,7 +47,14 @@ def load_cleaned_documents(root: Path, topic2id: dict):
     return docs
 
 
-def split_documents_by_sections(docs, max_section_length=3000):
+tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-mpnet-base-v2")
+
+
+def length_fn(text: str) -> int:
+    return len(tokenizer(text, truncation=False)["input_ids"])
+
+
+def split_documents_by_sections(docs):
     """
     Split documents by markdown section headers (##) to create semantically coherent chunks.
     If a section is too long, it will be further split using RecursiveCharacterTextSplitter.
@@ -56,9 +63,9 @@ def split_documents_by_sections(docs, max_section_length=3000):
 
     # Fallback splitter for very long sections
     fallback_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1500,
-        chunk_overlap=200,
-        length_function=len,
+        chunk_size=256,
+        chunk_overlap=64,
+        length_function=length_fn,
         separators=["\n\n", "\n", ". ", " ", ""],
     )
 
@@ -78,31 +85,20 @@ def split_documents_by_sections(docs, max_section_length=3000):
                     section_content = current_section.strip()
 
                     # If section is too long, split it further
-                    if len(section_content) > max_section_length:
-                        section_doc = Document(
-                            page_content=section_content,
-                            metadata={
-                                **doc.metadata,
-                                "section_header": current_header,
-                                "section_type": "content",
-                            },
-                        )
-                        subsections = fallback_splitter.split_documents([section_doc])
-                        # Add subsection info to metadata
-                        for i, subsection in enumerate(subsections):
-                            subsection.metadata["subsection_index"] = i
-                            subsection.metadata["total_subsections"] = len(subsections)
-                        sections.extend(subsections)
-                    else:
-                        section_doc = Document(
-                            page_content=section_content,
-                            metadata={
-                                **doc.metadata,
-                                "section_header": current_header,
-                                "section_type": "content",
-                            },
-                        )
-                        sections.append(section_doc)
+                    section_doc = Document(
+                        page_content=section_content,
+                        metadata={
+                            **doc.metadata,
+                            "section_header": current_header,
+                            "section_type": "content",
+                        },
+                    )
+                    subsections = fallback_splitter.split_documents([section_doc])
+                    # Add subsection info to metadata
+                    for i, subsection in enumerate(subsections):
+                        subsection.metadata["subsection_index"] = i
+                        subsection.metadata["total_subsections"] = len(subsections)
+                    sections.extend(subsections)
 
                 # Start new section
                 current_header = line.strip()
@@ -115,31 +111,20 @@ def split_documents_by_sections(docs, max_section_length=3000):
             section_content = current_section.strip()
 
             # If section is too long, split it further
-            if len(section_content) > max_section_length:
-                section_doc = Document(
-                    page_content=section_content,
-                    metadata={
-                        **doc.metadata,
-                        "section_header": current_header,
-                        "section_type": "content",
-                    },
-                )
-                subsections = fallback_splitter.split_documents([section_doc])
-                # Add subsection info to metadata
-                for i, subsection in enumerate(subsections):
-                    subsection.metadata["subsection_index"] = i
-                    subsection.metadata["total_subsections"] = len(subsections)
-                sections.extend(subsections)
-            else:
-                section_doc = Document(
-                    page_content=section_content,
-                    metadata={
-                        **doc.metadata,
-                        "section_header": current_header,
-                        "section_type": "content",
-                    },
-                )
-                sections.append(section_doc)
+            section_doc = Document(
+                page_content=section_content,
+                metadata={
+                    **doc.metadata,
+                    "section_header": current_header,
+                    "section_type": "content",
+                },
+            )
+            subsections = fallback_splitter.split_documents([section_doc])
+            # Add subsection info to metadata
+            for i, subsection in enumerate(subsections):
+                subsection.metadata["subsection_index"] = i
+                subsection.metadata["total_subsections"] = len(subsections)
+            sections.extend(subsections)
 
         # If no sections found, keep original document
         if not sections:
