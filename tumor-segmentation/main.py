@@ -268,6 +268,44 @@ class TumorModel(pl.LightningModule):
         self.validation_step_outputs = []
         self.test_step_outputs = []
 
+        # Initialize model weights properly to prevent extreme initial values
+        self._init_weights()
+
+        # Register gradient hooks for debugging
+        self._register_gradient_hooks()
+
+    def _init_weights(self):
+        """Initialize model weights to prevent extreme initial values"""
+        for module in self.modules():
+            if isinstance(module, (torch.nn.Conv2d, torch.nn.ConvTranspose2d)):
+                torch.nn.init.kaiming_normal_(
+                    module.weight, mode="fan_out", nonlinearity="relu"
+                )
+                if module.bias is not None:
+                    torch.nn.init.constant_(module.bias, 0)
+            elif isinstance(module, torch.nn.BatchNorm2d):
+                torch.nn.init.constant_(module.weight, 1)
+                torch.nn.init.constant_(module.bias, 0)
+            elif isinstance(module, torch.nn.Linear):
+                torch.nn.init.normal_(module.weight, 0, 0.01)
+                if module.bias is not None:
+                    torch.nn.init.constant_(module.bias, 0)
+
+    def _register_gradient_hooks(self):
+        """Register hooks to detect problematic gradients"""
+
+        def gradient_hook(grad):
+            if grad is not None:
+                if torch.isnan(grad).any() or torch.isinf(grad).any():
+                    print(f"Warning: NaN/Inf gradient detected, replacing with zeros")
+                    return torch.zeros_like(grad)
+            return grad
+
+        # Register hooks on model parameters
+        for param in self.parameters():
+            if param.requires_grad:
+                param.register_hook(gradient_hook)
+
     def forward(self, image):
         return self.model(image)
 
@@ -275,9 +313,22 @@ class TumorModel(pl.LightningModule):
 
         image = batch["image"]
 
+        # Comprehensive input validation for images
         assert image.ndim == 4
         h, w = image.shape[2:]
         assert h % 32 == 0 and w % 32 == 0
+
+        # Handle NaN/inf values in images
+        if torch.isnan(image).any() or torch.isinf(image).any():
+            print(f"Warning: Invalid values in input image, replacing with zeros")
+            image = torch.where(
+                torch.isnan(image) | torch.isinf(image),
+                torch.tensor(0.0, device=image.device),
+                image,
+            )
+
+        # Normalize image values to reasonable range
+        image = torch.clamp(image, min=-10.0, max=10.0)
 
         mask = batch["mask"]
         # Handle NaN values before clamping
@@ -436,6 +487,26 @@ class TumorModel(pl.LightningModule):
             },
         }
 
+    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure):
+        """Custom optimizer step with additional safety checks"""
+        # Check for problematic gradients before stepping
+        valid_gradients = True
+        for param in self.parameters():
+            if param.grad is not None:
+                if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
+                    print(
+                        f"Warning: Invalid gradients detected, skipping optimizer step"
+                    )
+                    valid_gradients = False
+                    break
+
+        if valid_gradients:
+            # Proceed with normal optimizer step
+            optimizer.step(closure=optimizer_closure)
+        else:
+            # Skip this step and zero gradients
+            optimizer.zero_grad()
+
 
 def get_train_augs() -> A.Compose:
     return A.Compose(
@@ -568,7 +639,7 @@ def train(
         logger=logger,
         enable_checkpointing=False,
         callbacks=callbacks,
-        precision=16,
+        precision=32,  # Disable AMP to avoid gradient scaler issues
         gradient_clip_val=1.0,  # Add gradient clipping to prevent exploding gradients
         gradient_clip_algorithm="norm",
     )
