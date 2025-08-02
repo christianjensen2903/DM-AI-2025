@@ -16,7 +16,7 @@ import cv2
 import wandb
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
-from pytorch_lightning.callbacks import Callback, EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import Callback, EarlyStopping
 import signal
 import sys
 
@@ -645,8 +645,6 @@ def train(
     # Create callbacks
     callbacks = []
 
-    # Note: ModelCheckpoint callback removed to save model only when training is complete
-
     # Add early stopping callback
     early_stopping = EarlyStopping(
         monitor=config.get("early_stopping_monitor", "valid_loss"),
@@ -674,7 +672,7 @@ def train(
     trainer = Trainer(
         max_epochs=config["max_epochs"],
         logger=logger,
-        enable_checkpointing=True,
+        enable_checkpointing=False,
         callbacks=callbacks,
     )
 
