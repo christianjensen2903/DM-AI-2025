@@ -8,7 +8,6 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
 from langchain_huggingface import HuggingFaceEmbeddings
 from sklearn.metrics import accuracy_score
-
 from utils import load_topics, load_cleaned_documents
 from text_normalizer import normalize_medical_text
 
@@ -107,20 +106,21 @@ def build_retrievers(docs):
     # embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
 
     # # Dense vector store using chunked documents
-    # vectorstore = Chroma.from_documents(split_docs, embeddings)  # in-memory
+    # vectorstore = Chroma.from_documents(split_docs, embeddings)
     # dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
     # Sparse BM25 retriever using chunked documents
     bm25_retriever = BM25Retriever.from_documents(
-        split_docs, k=5, bm25_params={"k1": 3.0, "b": 1.0}
+        split_docs,
+        k=5,
+        bm25_params={"k1": 2.5, "b": 0.25},
     )
-
     return bm25_retriever
 
     # Ensemble: adjust weights as needed
     # ensemble = EnsembleRetriever(
     #     retrievers=[bm25_retriever, dense_retriever],
-    #     weights=[0.5, 0.5],  # 50/50 blend; tune this
+    #     weights=[0.75, 0.25],
     # )
     # return ensemble
 
