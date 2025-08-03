@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
-from collections import Counter
+from typing import List, Tuple, Dict, Any, Optional
 
 import nltk
 from nltk.tokenize import word_tokenize
@@ -17,34 +16,26 @@ from langchain_core.documents import Document
 from utils import load_topics, load_cleaned_documents
 from text_normalizer import normalize_medical_text
 
-# Ensure required NLTK data is available
-nltk.download("punkt")
-nltk.download("stopwords")
+# Ensure required NLTK data is available (idempotent)
+nltk.download("punkt", quiet=True)
+nltk.download("stopwords", quiet=True)
 
 
-def preprocess_func(
+# --- reusable preprocessing helpers with caching to avoid re-instantiating ---
+_STOP_WORDS = set(stopwords.words("english"))
+_STEMMER = PorterStemmer()
+
+
+def preprocess_text(
     text: str, remove_stopwords: bool = False, use_stemming: bool = False
 ) -> List[str]:
-    """
-    Preprocess text by tokenizing and optionally removing stopwords and stemming.
-
-    Args:
-        text: Input text to preprocess
-        remove_stopwords: Whether to remove English stopwords
-        use_stemming: Whether to apply Porter stemming
-
-    Returns:
-        List of processed tokens
-    """
     tokens = word_tokenize(text.lower())
 
     if remove_stopwords:
-        stop_words = set(stopwords.words("english"))
-        tokens = [token for token in tokens if token not in stop_words]
+        tokens = [t for t in tokens if t not in _STOP_WORDS]
 
     if use_stemming:
-        stemmer = PorterStemmer()
-        tokens = [stemmer.stem(token) for token in tokens]
+        tokens = [_STEMMER.stem(t) for t in tokens]
 
     return tokens
 
@@ -52,277 +43,234 @@ def preprocess_func(
 def split_text_to_passages(
     text: str, passage_size: int = 200, overlap: int = 50
 ) -> List[str]:
-    """
-    Split a text into overlapping passages based on word tokens.
-
-    Args:
-        text: Full document text.
-        passage_size: Number of tokens per passage.
-        overlap: Number of tokens that overlap between consecutive passages.
-
-    Returns:
-        List of passage strings.
-    """
-    tokens = word_tokenize(text.lower())
     if passage_size <= 0:
         raise ValueError("passage_size must be positive")
-    if overlap < 0 or overlap >= passage_size:
-        raise ValueError("overlap must be >=0 and < passage_size")
+    if not (0 <= overlap < passage_size):
+        raise ValueError("overlap must be >= 0 and < passage_size")
+
+    tokens = word_tokenize(text.lower())
+    if not tokens:
+        return []
 
     step = passage_size - overlap
     passages = []
-    for start in range(0, max(1, len(tokens)), step):
+    for start in range(0, len(tokens), step):
         end = start + passage_size
-        chunk_tokens = tokens[start:end]
-        if not chunk_tokens:
+        chunk = tokens[start:end]
+        if not chunk:
             break
-        passage = " ".join(chunk_tokens)
-        passages.append(passage)
+        passages.append(" ".join(chunk))
         if end >= len(tokens):
             break
     return passages
 
 
-def build_passage_corpus(
-    docs: List[Document],
-    passage_size: int = 200,
-    overlap: int = 50,
-    normalize: bool = False,
-    remove_stopwords: bool = False,
-    use_stemming: bool = False,
-) -> Tuple[List[List[str]], List[Document]]:
-    """
-    From full documents, create passage-level Document objects and their tokenized representations.
+class BM25PassageRetriever:
+    def __init__(
+        self,
+        cleaned_root: Path,
+        topics_json: Path,
+        *,
+        normalize: bool = False,
+        remove_stopwords: bool = False,
+        use_stemming: bool = False,
+        passage_size: int = 200,
+        overlap: int = 50,
+        k1: float = 1.5,
+        b: float = 0.75,
+    ):
+        """
+        Build a passage-level BM25 retriever. Only returns top-1 (k=1).
 
-    Returns:
-        corpus_tokenized: list of token lists (one per passage)
-        passage_docs: list of Document objects with updated metadata for passages
-    """
-    corpus_tokenized: List[List[str]] = []
-    passage_docs: List[Document] = []
+        Raises on invalid input / empty corpus.
+        """
+        self.normalize = normalize
+        self.remove_stopwords = remove_stopwords
+        self.use_stemming = use_stemming
+        self.passage_size = passage_size
+        self.overlap = overlap
+        self.k1 = k1
+        self.b = b
 
-    for doc_idx, doc in enumerate(docs):
-        content = doc.page_content
-        if normalize:
-            content = normalize_medical_text(content)
+        self._validate_params()
 
-        passages = split_text_to_passages(
-            content, passage_size=passage_size, overlap=overlap
+        # Load topic mapping and full documents
+        self.topic2id, _ = load_topics(topics_json)
+        self.full_docs = load_cleaned_documents(
+            cleaned_root, self.topic2id, normalize=normalize
         )
-        original_doc_id = doc.metadata.get("doc_id", f"doc_{doc_idx}")
-        topic_id = doc.metadata.get("topic_id", -1)
+        if not self.full_docs:
+            raise RuntimeError(f"No full documents loaded from {cleaned_root}")
 
-        for p_idx, passage_text in enumerate(passages):
-            tokens = preprocess_func(
-                passage_text,
-                remove_stopwords=remove_stopwords,
-                use_stemming=use_stemming,
+        # Build passage-level corpus
+        self.corpus_tokenized: List[List[str]]
+        self.passage_docs: List[Document]
+        self._build_corpus()
+
+        if not self.passage_docs:
+            raise RuntimeError("Passage corpus is empty after splitting documents.")
+
+        # Build BM25 retriever (BM25Plus for better scoring)
+        self.retriever = rank_bm25.BM25Plus(
+            corpus=self.corpus_tokenized, k1=self.k1, b=self.b
+        )
+
+    def _validate_params(self):
+        if self.passage_size <= 0:
+            raise ValueError("passage_size must be positive")
+        if not (0 <= self.overlap < self.passage_size):
+            raise ValueError("overlap must be >=0 and < passage_size")
+        if self.k1 <= 0:
+            raise ValueError("k1 must be positive")
+        if not (0 <= self.b <= 1):
+            raise ValueError("b must be between 0 and 1")
+
+    def _build_corpus(self):
+        self.corpus_tokenized = []
+        self.passage_docs = []
+
+        for doc_idx, doc in enumerate(self.full_docs):
+            content = doc.page_content
+            if self.normalize:
+                content = normalize_medical_text(content)
+
+            passages = split_text_to_passages(
+                content, passage_size=self.passage_size, overlap=self.overlap
             )
-            corpus_tokenized.append(tokens)
+            original_doc_id = doc.metadata.get("doc_id", f"doc_{doc_idx}")
+            topic_id = doc.metadata.get("topic_id", -1)
 
-            # Build passage-level metadata
-            passage_metadata: Dict[str, Any] = {
-                "topic_id": topic_id,
-                "original_doc_id": original_doc_id,
-                "passage_id": f"{original_doc_id}_passage_{p_idx}",
-            }
-            # Optionally carry over other metadata fields if needed
-            passage_doc = Document(page_content=passage_text, metadata=passage_metadata)
-            passage_docs.append(passage_doc)
+            for p_idx, passage_text in enumerate(passages):
+                tokens = preprocess_text(
+                    passage_text,
+                    remove_stopwords=self.remove_stopwords,
+                    use_stemming=self.use_stemming,
+                )
+                if not tokens:
+                    continue  # skip empty after preprocessing
 
-    return corpus_tokenized, passage_docs
+                self.corpus_tokenized.append(tokens)
 
+                passage_metadata: Dict[str, Any] = {
+                    "topic_id": topic_id,
+                    "original_doc_id": original_doc_id,
+                    "passage_id": f"{original_doc_id}_passage_{p_idx}",
+                }
+                passage_doc = Document(
+                    page_content=passage_text, metadata=passage_metadata
+                )
+                self.passage_docs.append(passage_doc)
 
-def preprocess_statements(
-    statements_dir: Path,
-    answers_dir: Path,
-    normalize: bool = False,
-    remove_stopwords: bool = True,
-    use_stemming: bool = True,
-) -> Tuple[List[List[str]], List[int], List[Path]]:
-    """
-    Pre-process all statements to avoid redundant processing during parameter tuning.
+    def retrieve_best_passage(
+        self, statement: str
+    ) -> Tuple[Optional[Document], int, float]:
+        """
+        Given a raw statement string, return the best matching passage (top-1),
+        the predicted topic_id, and the BM25 score.
 
-    Returns:
-        Tuple of (processed_statements, true_labels, statement_paths)
-    """
-    processed_statements = []
-    true_labels: List[int] = []
-    statement_paths = []
-
-    for stmt_path in sorted(statements_dir.glob("statement_*.txt")):
-        base = stmt_path.stem  # e.g., "statement_0001"
-        answer_path = answers_dir / f"{base}.json"
-        if not answer_path.exists():
-            continue
-
-        statement_text = stmt_path.read_text(encoding="utf-8")
-        with answer_path.open("r", encoding="utf-8") as f:
-            answer = json.load(f)
-        true_topic_id = answer.get("statement_topic", -1)
-
-        if normalize:
-            statement_text = normalize_medical_text(statement_text, is_query=True)
-
-        statement_text_processed = preprocess_func(
-            statement_text,
-            remove_stopwords=remove_stopwords,
-            use_stemming=use_stemming,
-        )
-
-        processed_statements.append(statement_text_processed)
-        true_labels.append(true_topic_id)
-        statement_paths.append(stmt_path)
-
-    return processed_statements, true_labels, statement_paths
-
-
-def get_retrieval_predictions(
-    retriever: rank_bm25.BM25Okapi,
-    passage_docs: List[Document],
-    processed_statements: List[List[str]],
-    true_labels: List[int],
-    n: int = 1,
-) -> Tuple[List[int], List[int]]:
-    """
-    Get retrieval predictions using the specified BM25 retriever over passages.
-
-    Implements majority vote over top-n retrieved passages.
-
-    Returns:
-        Tuple of (y_true, y_pred)
-    """
-    y_true = []
-    y_pred = []
-
-    for statement_tokens, true_topic_id in zip(processed_statements, true_labels):
-        retrieved = retriever.get_top_n(statement_tokens, passage_docs, n=n)
-        if not retrieved:
-            y_true.append(true_topic_id)
-            y_pred.append(-1)
-            continue
-
-        # Collect the topic_ids from top-n passages
-        top_topic_ids = [
-            doc.metadata.get("topic_id", -1)
-            for doc in retrieved
-            if doc.metadata.get("topic_id", -1) != -1
-        ]
-        if not top_topic_ids:
-            pred_topic_id = -1
-        elif len(top_topic_ids) == 1 or n == 1:
-            pred_topic_id = top_topic_ids[0]
+        Returns (None, -1, 0.0) if nothing could be retrieved.
+        """
+        if self.normalize:
+            statement_proc = normalize_medical_text(statement, is_query=True)
         else:
-            counts = Counter(top_topic_ids)
-            most_common = counts.most_common()
-            # If tie, pick the topic_id of the top-1 retrieved
-            if len(most_common) > 1 and most_common[0][1] == most_common[1][1]:
-                pred_topic_id = retrieved[0].metadata.get("topic_id", -1)
-            else:
-                pred_topic_id = most_common[0][0]
+            statement_proc = statement
 
-        y_true.append(true_topic_id)
-        y_pred.append(pred_topic_id)
+        statement_tokens = preprocess_text(
+            statement_proc,
+            remove_stopwords=self.remove_stopwords,
+            use_stemming=self.use_stemming,
+        )
+        if not statement_tokens:
+            return None, -1, 0.0
 
-    return y_true, y_pred
+        # BM25Plus doesn't expose a direct get_top_n for one; mimic using scores
+        scores = self.retriever.get_scores(statement_tokens)  # length = num passages
+        if not scores.any():
+            return None, -1, 0.0
+
+        best_idx = int(scores.argmax())
+        best_score = float(scores[best_idx])
+        best_doc = self.passage_docs[best_idx]
+        predicted_topic = best_doc.metadata.get("topic_id", -1)
+        return best_doc, predicted_topic, best_score
+
+    def evaluate(
+        self,
+        statements_dir: Path,
+        answers_dir: Path,
+    ) -> Dict[str, Any]:
+        """
+        Evaluate on all statement_*.txt with matching answer JSONs. Returns dict with accuracy and raw lists.
+        """
+        processed_statement_texts = []
+        true_labels = []
+        stmt_paths = []
+
+        if not statements_dir.exists() or not answers_dir.exists():
+            raise FileNotFoundError(
+                f"{statements_dir=} or {answers_dir=} does not exist."
+            )
+
+        for stmt_path in sorted(statements_dir.glob("statement_*.txt")):
+            base = stmt_path.stem  # e.g., "statement_0001"
+            answer_path = answers_dir / f"{base}.json"
+            if not answer_path.exists():
+                continue  # skip if no answer
+
+            statement_text = stmt_path.read_text(encoding="utf-8")
+            with answer_path.open("r", encoding="utf-8") as f:
+                answer = json.load(f)
+            true_topic_id = answer.get("statement_topic", -1)
+
+            processed_statement_texts.append(statement_text)
+            true_labels.append(true_topic_id)
+            stmt_paths.append(stmt_path)
+
+        if not processed_statement_texts:
+            raise RuntimeError("No statements/answers found to evaluate.")
+
+        y_true = []
+        y_pred = []
+
+        for statement_text, true_topic in zip(processed_statement_texts, true_labels):
+            _, pred_topic, _ = self.retrieve_best_passage(statement_text)
+            y_true.append(true_topic)
+            y_pred.append(pred_topic)
+
+        acc = accuracy_score(y_true, y_pred)
+        return {
+            "accuracy": acc,
+            "y_true": y_true,
+            "y_pred": y_pred,
+            "total": len(y_true),
+        }
 
 
-def evaluate_bm25_config_on_passages(
-    k1: float,
-    b: float,
-    docs: List[Document],
-    texts_processed_passages: List[List[str]],
-    passage_docs: List[Document],
-    processed_statements: List[List[str]],
-    true_labels: List[int],
-    top_n: int = 1,
-) -> Dict[str, Any]:
-    """
-    Evaluate BM25 on passage-level corpus.
-
-    Returns evaluation dictionary including accuracy and predictions.
-    """
-    retriever = rank_bm25.BM25Plus(corpus=texts_processed_passages, k1=k1, b=b)
-
-    y_true, y_pred = get_retrieval_predictions(
-        retriever, passage_docs, processed_statements, true_labels, n=top_n
-    )
-
-    accuracy = accuracy_score(y_true, y_pred)
-
-    return {
-        "k1": k1,
-        "b": b,
-        "top_n": top_n,
-        "accuracy": accuracy,
-        "total_evaluated": len(y_true),
-        "y_true": y_true,
-        "y_pred": y_pred,
-    }
-
-
-def test_bm25_params_on_passages(
-    k1: float = 1.5,
-    b: float = 0.75,
-    normalize: bool = False,
-    remove_stopwords: bool = False,
-    use_stemming: bool = False,
-    passage_size: int = 200,
-    overlap: int = 50,
-    top_n: int = 1,
-):
-    """Test BM25 over passages with specific parameters and preprocessing."""
+def main():
     base = Path("data")
     topics_json = base / "topics.json"
     cleaned_root = base / "cleaned_topics"
     statements_dir = base / "train" / "statements"
     answers_dir = base / "train" / "answers"
 
-    # Load topic mapping and full documents
-    print("Loading data...")
-    topic2id, _ = load_topics(topics_json)
-    full_docs = load_cleaned_documents(cleaned_root, topic2id, normalize=False)
-    print(f"Loaded {len(full_docs)} full documents")
-
-    # Build passage-level corpus
-    texts_processed_passages, passage_docs = build_passage_corpus(
-        full_docs,
-        passage_size=passage_size,
-        overlap=overlap,
-        normalize=normalize,
-        remove_stopwords=remove_stopwords,
-        use_stemming=use_stemming,
-    )
-    print(f"Built {len(passage_docs)} passages from documents")
-
-    processed_statements, true_labels, _ = preprocess_statements(
-        statements_dir, answers_dir, normalize, remove_stopwords, use_stemming
-    )
-
-    result = evaluate_bm25_config_on_passages(
-        k1,
-        b,
-        passage_docs,
-        texts_processed_passages,
-        passage_docs,
-        processed_statements,
-        true_labels,
-        top_n=top_n,
-    )
-    print(f"Accuracy over passages (top_n={top_n}): {result['accuracy']:.4f}")
-    return result
-
-
-def main():
-    test_bm25_params_on_passages(
-        k1=2.5,
-        b=0.25,
+    retriever = BM25PassageRetriever(
+        cleaned_root=cleaned_root,
+        topics_json=topics_json,
         normalize=True,
         remove_stopwords=False,
         use_stemming=False,
         passage_size=100,
         overlap=25,
-        top_n=1,
+        k1=2.5,
+        b=0.25,
+    )
+
+    eval_result = retriever.evaluate(
+        statements_dir=statements_dir,
+        answers_dir=answers_dir,
+    )
+    print(
+        f"Evaluation accuracy (k=1): {eval_result['accuracy']:.4f} over {eval_result['total']} statements"
     )
 
 
