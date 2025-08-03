@@ -110,6 +110,7 @@ def train_and_evaluate(config: Dict[str, Any]) -> Dict[str, Any]:
         "use_wandb": True,
         "wandb_project": "emergency-healthcare-rag",
         "wandb_run_name": None,
+        "k": 3,
     }
     cfg = {**defaults, **config}
 
@@ -142,10 +143,10 @@ def train_and_evaluate(config: Dict[str, Any]) -> Dict[str, Any]:
     val_path = Path(cfg["val_file"])
 
     train_dataset = StatementSnippetDataset(
-        train_path, tokenizer, max_length=cfg["max_length"]
+        train_path, tokenizer, max_length=cfg["max_length"], k=cfg["k"]
     )
     val_dataset = StatementSnippetDataset(
-        val_path, tokenizer, max_length=cfg["max_length"]
+        val_path, tokenizer, max_length=cfg["max_length"], k=cfg["k"]
     )
 
     # Log dataset sizes to wandb
@@ -284,6 +285,7 @@ if __name__ == "__main__":
         "use_wandb": True,
         "wandb_project": "emergency-healthcare-rag",
         "wandb_run_name": "bert-truth-classifier-baseline",
+        "k": 3,
     }
     result = train_and_evaluate(config)
     print("Final evaluation metrics:", result["metrics"])
