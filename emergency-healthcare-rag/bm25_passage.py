@@ -242,7 +242,7 @@ def evaluate_bm25_config_on_passages(
 
     Returns evaluation dictionary including accuracy and predictions.
     """
-    retriever = rank_bm25.BM25Okapi(corpus=texts_processed_passages, k1=k1, b=b)
+    retriever = rank_bm25.BM25Plus(corpus=texts_processed_passages, k1=k1, b=b)
 
     y_true, y_pred = get_retrieval_predictions(
         retriever, passage_docs, processed_statements, true_labels, n=top_n
@@ -275,8 +275,8 @@ def test_bm25_params_on_passages(
     base = Path("data")
     topics_json = base / "topics.json"
     cleaned_root = base / "cleaned_topics"
-    statements_dir = base / "synthetic" / "statements"
-    answers_dir = base / "synthetic" / "answers"
+    statements_dir = base / "train" / "statements"
+    answers_dir = base / "train" / "answers"
 
     # Load topic mapping and full documents
     print("Loading data...")
@@ -314,16 +314,15 @@ def test_bm25_params_on_passages(
 
 
 def main():
-    # Example run: passage size 250 tokens with 50-token overlap, using stopword removal
     test_bm25_params_on_passages(
         k1=2.5,
-        b=1.0,
+        b=0.25,
         normalize=True,
         remove_stopwords=False,
         use_stemming=False,
-        passage_size=250,
-        overlap=50,
-        top_n=3,  # majority vote over top 3 passages
+        passage_size=100,
+        overlap=25,
+        top_n=1,
     )
 
 
