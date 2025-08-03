@@ -561,9 +561,7 @@ def train(
 
     # Log the model save paths if using wandb
     if enable_wandb and hasattr(logger, "experiment"):
-        logger.experiment.log(
-            {"final_model_path": model_path, "final_state_dict_path": state_dict_path}
-        )
+        logger.experiment.log_model(model_path)
 
 
 def run_experiment(
