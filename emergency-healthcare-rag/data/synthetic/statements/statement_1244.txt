@@ -1,0 +1,1 @@
+CT scans produce images in the cranial direction, meaning from head to feet, with the right side of the image corresponding to the patient's right side.

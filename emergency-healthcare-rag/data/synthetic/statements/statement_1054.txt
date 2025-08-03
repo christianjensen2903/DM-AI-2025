@@ -1,0 +1,1 @@
+Magnetic resonance imaging (MRI) provides high-resolution soft tissue contrast without ionizing radiation, making it especially valuable for evaluating neurological, musculoskeletal, and abdominal pathologies, while requiring careful screening for implanted devices due to magnetic field interactions.

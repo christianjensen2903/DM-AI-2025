@@ -1,0 +1,1 @@
+Lactate is produced from pyruvate by lactate dehydrogenase during anaerobic glycolysis to regenerate NAD+, enabling continued ATP production in hypoxic conditions.

@@ -1,0 +1,1 @@
+CT scans display images oriented as if viewed from the patient's head, so the right side of the image corresponds to the patient's right side.

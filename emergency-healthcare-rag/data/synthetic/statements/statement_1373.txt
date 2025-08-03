@@ -1,0 +1,1 @@
+The complete blood count with differential provides quantitative data on red blood cells, white blood cells, and platelets, allowing classification of anemia by red cell indices and identification of leukocyte abnormalities, but results must be interpreted cautiously due to potential spurious values from factors such as hemolysis, clumping, or sample interference.
