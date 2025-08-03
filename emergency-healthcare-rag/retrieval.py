@@ -115,7 +115,9 @@ def build_retrievers(docs):
     dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
     # Sparse BM25 retriever using chunked documents
-    bm25_retriever = BM25Retriever.from_documents(split_docs, k=5)
+    bm25_retriever = BM25Retriever.from_documents(
+        split_docs, k=5, bm25_params={"k1": 3.0, "b": 1.0}
+    )
 
     # Ensemble: adjust weights as needed
     ensemble = EnsembleRetriever(

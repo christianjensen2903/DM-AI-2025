@@ -59,6 +59,48 @@ def preprocess_statements(
     return processed_statements, true_labels, statement_paths
 
 
+def get_retrieval_predictions(
+    retriever,
+    docs: list[Document],
+    processed_statements: list[list[str]],
+    true_labels: list[int],
+    n: int = 1,
+) -> tuple[list[int], list[int]]:
+    """
+    Get retrieval predictions using the specified retriever.
+
+    Args:
+        retriever: The retriever to use (e.g., BM25Okapi instance)
+        docs: List of documents (for metadata access)
+        processed_statements: Pre-processed statement texts
+        true_labels: True topic labels for statements
+        n: Number of top results to retrieve (default: 1)
+
+    Returns:
+        Tuple of (y_true, y_pred) lists
+    """
+    y_true = []
+    y_pred = []
+
+    for statement_text_processed, true_topic_id in zip(
+        processed_statements, true_labels
+    ):
+        # Retrieve top document(s)
+        retrieved = retriever.get_top_n(statement_text_processed, docs, n=n)
+        if len(retrieved) == 0:
+            # fallback: predict nothing
+            y_true.append(true_topic_id)
+            y_pred.append(-1)
+            continue
+
+        # Take the top 1 result as the predicted topic
+        pred_topic_id = retrieved[0].metadata.get("topic_id", -1)
+        y_true.append(true_topic_id)
+        y_pred.append(pred_topic_id)
+
+    return y_true, y_pred
+
+
 def evaluate_bm25_config(
     k1: float,
     b: float,
@@ -84,24 +126,10 @@ def evaluate_bm25_config(
     # Create BM25Plus retriever with specified parameters
     retriever = rank_bm25.BM25Okapi(corpus=texts_processed, k1=k1, b=b)
 
-    y_true = []
-    y_pred = []
-
-    for statement_text_processed, true_topic_id in zip(
-        processed_statements, true_labels
-    ):
-        # Retrieve top document
-        retrieved = retriever.get_top_n(statement_text_processed, docs, n=1)
-        if len(retrieved) == 0:
-            # fallback: predict nothing
-            y_true.append(true_topic_id)
-            y_pred.append(-1)
-            continue
-
-        # Take the top 1 result as the predicted topic
-        pred_topic_id = retrieved[0].metadata.get("topic_id", -1)
-        y_true.append(true_topic_id)
-        y_pred.append(pred_topic_id)
+    # Get predictions using the extracted function
+    y_true, y_pred = get_retrieval_predictions(
+        retriever, docs, processed_statements, true_labels
+    )
 
     # Calculate accuracy
     accuracy = accuracy_score(y_true, y_pred)
@@ -202,7 +230,7 @@ def test_bm25_params(
 
 
 def main():
-    test_bm25_params(k1=2.5, b=1.0, normalize=True)
+    test_bm25_params(k1=2.5, b=1.0, normalize=False, remove_stopwords=True)
 
 
 if __name__ == "__main__":
