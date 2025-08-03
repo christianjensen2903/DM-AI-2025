@@ -339,7 +339,7 @@ class MedicalTextNormalizer:
             text = self._expand_anatomical_terms(text)
 
         # # Step 9: Whitespace normalization (final cleanup)
-        text = self._normalize_whitespace(text)
+        # text = self._normalize_whitespace(text)
 
         return text.strip()
 

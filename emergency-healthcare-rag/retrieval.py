@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from collections import defaultdict
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -8,17 +7,14 @@ from langchain.retrievers import EnsembleRetriever
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
 from langchain_huggingface import HuggingFaceEmbeddings
-from transformers import AutoTokenizer
 from sklearn.metrics import accuracy_score
 
 from utils import load_topics, load_cleaned_documents
-
-
-tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-mpnet-base-v2")
+from text_normalizer import normalize_medical_text
 
 
 def length_fn(text: str) -> int:
-    return len(tokenizer(text, truncation=False)["input_ids"])
+    return len(text.split())
 
 
 def split_documents_by_sections(docs):
@@ -30,8 +26,8 @@ def split_documents_by_sections(docs):
 
     # Fallback splitter for very long sections
     fallback_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=256,
-        chunk_overlap=64,
+        chunk_size=100,
+        chunk_overlap=25,
         length_function=length_fn,
         separators=["\n\n", "\n", ". ", " ", ""],
     )
@@ -108,26 +104,30 @@ def build_retrievers(docs):
     print(f"Split {len(docs)} documents into {len(split_docs)} section-based chunks")
 
     # embeddings - using sentence-transformers for quick start
-    embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
+    # embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
 
-    # Dense vector store using chunked documents
-    vectorstore = Chroma.from_documents(split_docs, embeddings)  # in-memory
-    dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+    # # Dense vector store using chunked documents
+    # vectorstore = Chroma.from_documents(split_docs, embeddings)  # in-memory
+    # dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
     # Sparse BM25 retriever using chunked documents
     bm25_retriever = BM25Retriever.from_documents(
         split_docs, k=5, bm25_params={"k1": 3.0, "b": 1.0}
     )
 
+    return bm25_retriever
+
     # Ensemble: adjust weights as needed
-    ensemble = EnsembleRetriever(
-        retrievers=[bm25_retriever, dense_retriever],
-        weights=[0.5, 0.5],  # 50/50 blend; tune this
-    )
-    return ensemble
+    # ensemble = EnsembleRetriever(
+    #     retrievers=[bm25_retriever, dense_retriever],
+    #     weights=[0.5, 0.5],  # 50/50 blend; tune this
+    # )
+    # return ensemble
 
 
-def evaluate_topic_retrieval(ensemble, statements_dir: Path, answers_dir: Path):
+def evaluate_topic_retrieval(
+    ensemble, statements_dir: Path, answers_dir: Path, normalize: bool = False
+):
     y_true = []
     y_pred = []
     missing = []
@@ -144,29 +144,12 @@ def evaluate_topic_retrieval(ensemble, statements_dir: Path, answers_dir: Path):
         if true_topic_id is None:
             continue
 
+        if normalize:
+            statement_text = normalize_medical_text(statement_text)
+
         # Retrieval
         retrieved = ensemble.invoke(statement_text)
-        if len(retrieved) == 0:
-            # fallback: predict nothing
-            y_true.append(true_topic_id)
-            y_pred.append(-1)
-            continue
-
-        # Vote among top 3 results instead of just taking the best
-        top_k = min(3, len(retrieved))
-        topic_votes = defaultdict(int)
-
-        for i in range(top_k):
-            result_topic_id = retrieved[i].metadata.get("topic_id", -1)
-            if result_topic_id != -1:  # Only count valid topic IDs
-                topic_votes[result_topic_id] += 1
-
-        if not topic_votes:
-            # No valid topics found in top results
-            pred_topic_id = -1
-        else:
-            # Select topic with most votes (ties go to first occurrence)
-            pred_topic_id = max(topic_votes.items(), key=lambda x: x[1])[0]
+        pred_topic_id = retrieved[0].metadata.get("topic_id", -1)
 
         y_true.append(true_topic_id)
         y_pred.append(pred_topic_id)
@@ -192,10 +175,12 @@ def main():
 
     topic2id, _ = load_topics(topics_json)
 
-    documents = load_cleaned_documents(cleaned_root, topic2id)
+    normalize = True
+
+    documents = load_cleaned_documents(cleaned_root, topic2id, normalize=normalize)
 
     ensemble = build_retrievers(documents)
-    evaluate_topic_retrieval(ensemble, statements_dir, answers_dir)
+    evaluate_topic_retrieval(ensemble, statements_dir, answers_dir, normalize=normalize)
 
 
 if __name__ == "__main__":
