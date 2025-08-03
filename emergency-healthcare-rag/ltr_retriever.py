@@ -413,7 +413,7 @@ class LTRRetriever:
     # ---------- inference ----------
     def retrieve(
         self, raw_statement: str, top_k: int = 1, use_ltr: bool = True
-    ) -> List[Tuple[Document, float, Optional[float]]]:
+    ) -> List[Document]:
         """
         Returns list of (Document, bm25_score, ltr_score) sorted by final score.
         If use_ltr=False, returns top-k by BM25 only (ltr_score=None).
@@ -442,18 +442,12 @@ class LTRRetriever:
             sorted_idx = top_candidate_idxs[order]
             results = []
             for rank_pos, doc_idx in enumerate(sorted_idx[:top_k]):
-                results.append(
-                    (
-                        self.docs[doc_idx],
-                        float(bm25_scores[doc_idx]),
-                        float(scores[order[rank_pos]]),
-                    )
-                )
+                results.append(self.docs[doc_idx])
             return results
         else:
             # BM25 only
             sorted_idx = top_candidate_idxs[:top_k]
-            return [(self.docs[i], float(bm25_scores[i]), None) for i in sorted_idx]
+            return [self.docs[i] for i in sorted_idx]
 
 
 # Optional CLI for training & saving

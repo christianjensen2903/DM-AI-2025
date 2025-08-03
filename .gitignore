@@ -6,7 +6,7 @@ emergency-healthcare-rag/models
 
 # Emily-specific files
 .idea
-.vscode
+.vscode 
 .devcontainer
 .jupyter
 
