@@ -35,7 +35,6 @@ FEATURE_NAMES = ["bm25", "tfidf_cosine", "jaccard", "query_len", "doc_len"]
 @dataclass
 class LTRConfig:
     train_source: str = "synthetic"
-    val_source: str = "train"
     k1: float = 1.5
     b: float = 0.75
     normalize: bool = False
@@ -82,17 +81,6 @@ class LTRRetriever:
         self.tfidf = TfidfVectorizer()
         self.tfidf.fit(self.doc_texts + statement_texts)
         self.doc_tfidf = self.tfidf.transform(self.doc_texts)
-
-    @staticmethod
-    def _ndcg_at_k(relevances: List[int], k: int) -> float:
-        def dcg(rs):
-            return sum((2**r - 1) / np.log2(idx + 2) for idx, r in enumerate(rs[:k]))
-
-        ideal = sorted(relevances, reverse=True)
-        ideal_dcg = dcg(ideal)
-        if ideal_dcg == 0:
-            return 0.0
-        return dcg(relevances) / ideal_dcg
 
     def _compute_feature_vector(
         self,
@@ -155,19 +143,10 @@ class LTRRetriever:
         # Load & preprocess statements
         train_statements_dir = Path("data") / self.config.train_source / "statements"
         train_answers_dir = Path("data") / self.config.train_source / "answers"
-        val_statements_dir = Path("data") / self.config.val_source / "statements"
-        val_answers_dir = Path("data") / self.config.val_source / "answers"
 
         processed_statements_train, true_labels_train, _ = preprocess_statements(
             train_statements_dir,
             train_answers_dir,
-            self.config.normalize,
-            self.config.remove_stopwords,
-            self.config.use_stemming,
-        )
-        processed_statements_val, true_labels_val, _ = preprocess_statements(
-            val_statements_dir,
-            val_answers_dir,
             self.config.normalize,
             self.config.remove_stopwords,
             self.config.use_stemming,
@@ -177,11 +156,6 @@ class LTRRetriever:
         self.bm25 = rank_bm25.BM25Okapi(
             texts_processed, k1=self.config.k1, b=self.config.b
         )
-        y_true_bm25_val, y_pred_bm25_val = get_retrieval_predictions(
-            self.bm25, self.docs, processed_statements_val, true_labels_val
-        )
-        bm25_acc = (np.array(y_true_bm25_val) == np.array(y_pred_bm25_val)).mean()
-        logger.info(f"[BM25 val accuracy] {bm25_acc:.4f}")
 
         # TF-IDF build (fit on train statements + docs)
         self._build_tfidf(self.docs, processed_statements_train)
@@ -464,14 +438,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--train_source", type=str, default="synthetic", help="data/<source>/statements"
     )
-    parser.add_argument(
-        "--val_source", type=str, default="train", help="data/<source>/statements"
-    )
     args = parser.parse_args()
 
     cfg = LTRConfig(
         train_source=args.train_source,
-        val_source=args.val_source,
         k1=2.5,
         b=1.0,
         normalize=False,
