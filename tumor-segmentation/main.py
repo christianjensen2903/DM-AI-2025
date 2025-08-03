@@ -14,11 +14,7 @@ from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 import albumentations as A
 import cv2
 import wandb
-import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 from pytorch_lightning.callbacks import Callback, EarlyStopping
-import signal
-import sys
 
 DESIRED_WIDTH = 416
 DESIRED_HEIGHT = 992
@@ -113,7 +109,7 @@ def process_data(images, masks, control, transform):
     return images, masks, control
 
 
-def image_transform_numpy(image):
+def image_transform(image):
     """Transform numpy image to desired size and normalize"""
     height, width = image.shape
 
@@ -450,7 +446,7 @@ def train(
 
     images, masks, control = get_images(image_dir, mask_dir, control_dir)
 
-    images, masks, control = process_data(images, masks, control, image_transform_numpy)
+    images, masks, control = process_data(images, masks, control, image_transform)
 
     train_imgs, val_imgs, train_masks, val_masks = train_test_split(
         images, masks, test_size=0.2, random_state=42
