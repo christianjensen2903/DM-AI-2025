@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+import re
+from typing import Iterable, List
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -16,83 +18,77 @@ def length_fn(text: str) -> int:
     return len(text.split())
 
 
-def split_documents_by_sections(docs):
-    """
-    Split documents by markdown section headers (##) to create semantically coherent chunks.
-    If a section is too long, it will be further split using RecursiveCharacterTextSplitter.
-    """
-    split_docs = []
+SECTION_HEADER_RE = re.compile(r"^\s*(##\s+.*)$")
 
-    # Fallback splitter for very long sections
+
+def split_documents_by_sections(
+    docs: Iterable["Document"],
+    chunk_size: int = 100,
+    chunk_overlap: int = 25,
+    header_pattern: re.Pattern = SECTION_HEADER_RE,
+) -> List["Document"]:
+    """
+    Split documents by markdown section headers (lines starting with '## ').
+    Sections longer than chunk_size are further split using RecursiveCharacterTextSplitter.
+    Metadata is preserved and annotated with:
+      - section_header: the most recent header line (including the '## ')
+      - section_type: "content"
+      - subsection_index / total_subsections: if the section was further split
+    """
+
     fallback_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=100,
-        chunk_overlap=25,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
         length_function=length_fn,
         separators=["\n\n", "\n", ". ", " ", ""],
     )
 
+    def _finalize_section(
+        header: str, lines: List[str], base_meta: dict
+    ) -> List["Document"]:
+        content = "\n".join(lines).strip()
+        if not content:
+            return []
+        section_doc = Document(
+            page_content=content,
+            metadata={
+                **base_meta,
+                "section_header": header,
+                "section_type": "content",
+            },
+        )
+        subsections = fallback_splitter.split_documents([section_doc])
+        for i, subsection in enumerate(subsections):
+            subsection.metadata["subsection_index"] = i
+            subsection.metadata["total_subsections"] = len(subsections)
+        return subsections
+
+    split_docs: List["Document"] = []
+
     for doc in docs:
-        content = doc.page_content
-        sections = []
-        current_section = ""
+        sections: List["Document"] = []
         current_header = ""
+        current_lines: List[str] = []
 
-        lines = content.split("\n")
-
-        for line in lines:
-            # Check if line is a section header (starts with ##)
-            if line.strip().startswith("## "):
-                # Save previous section if it exists
-                if current_section.strip():
-                    section_content = current_section.strip()
-
-                    # If section is too long, split it further
-                    section_doc = Document(
-                        page_content=section_content,
-                        metadata={
-                            **doc.metadata,
-                            "section_header": current_header,
-                            "section_type": "content",
-                        },
-                    )
-                    subsections = fallback_splitter.split_documents([section_doc])
-                    # Add subsection info to metadata
-                    for i, subsection in enumerate(subsections):
-                        subsection.metadata["subsection_index"] = i
-                        subsection.metadata["total_subsections"] = len(subsections)
-                    sections.extend(subsections)
-
-                # Start new section
-                current_header = line.strip()
-                current_section = line + "\n"
+        for line in doc.page_content.splitlines():
+            match = header_pattern.match(line)
+            if match:
+                # flush previous section
+                sections.extend(
+                    _finalize_section(current_header, current_lines, doc.metadata)
+                )
+                current_header = match.group(1)  # full header line, e.g., "## Section"
+                current_lines = [line]  # include header in the section content
             else:
-                current_section += line + "\n"
+                current_lines.append(line)
 
-        # Don't forget the last section
-        if current_section.strip():
-            section_content = current_section.strip()
+        # flush the last section
+        sections.extend(_finalize_section(current_header, current_lines, doc.metadata))
 
-            # If section is too long, split it further
-            section_doc = Document(
-                page_content=section_content,
-                metadata={
-                    **doc.metadata,
-                    "section_header": current_header,
-                    "section_type": "content",
-                },
-            )
-            subsections = fallback_splitter.split_documents([section_doc])
-            # Add subsection info to metadata
-            for i, subsection in enumerate(subsections):
-                subsection.metadata["subsection_index"] = i
-                subsection.metadata["total_subsections"] = len(subsections)
-            sections.extend(subsections)
-
-        # If no sections found, keep original document
-        if not sections:
-            split_docs.append(doc)
-        else:
+        if sections:
             split_docs.extend(sections)
+        else:
+            split_docs.append(doc)
 
     return split_docs
 
