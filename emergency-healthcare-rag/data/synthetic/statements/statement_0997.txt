@@ -1,0 +1,1 @@
+The 12-lead ECG provides a comprehensive electrical mapping of the heart by recording six limb and six precordial leads, enabling localization of myocardial ischemia or infarction according to the coronary artery territories they represent.

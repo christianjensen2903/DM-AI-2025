@@ -1,0 +1,1 @@
+The 12-lead ECG's precordial leads V1 to V6 assess the anterior and lateral walls of the heart, primarily supplied by the left anterior descending and circumflex coronary arteries, enabling localization of myocardial ischemia or infarction.

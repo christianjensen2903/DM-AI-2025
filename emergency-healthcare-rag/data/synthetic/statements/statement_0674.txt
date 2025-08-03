@@ -1,0 +1,1 @@
+CT scans typically acquire images in a caudal-to-cranial direction, moving from the head toward the feet during the scanning process.

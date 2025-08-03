@@ -1,0 +1,1 @@
+Pulse oximetry provides a noninvasive measurement of arterial oxygen saturation by differentiating oxyhemoglobin from deoxyhemoglobin using dual-wavelength light absorption, but it cannot detect hypoventilation or carbon dioxide retention.
