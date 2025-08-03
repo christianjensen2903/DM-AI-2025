@@ -6,6 +6,7 @@ from typing import Dict, Any
 import torch
 from torch.utils.data import Dataset
 import numpy as np
+import wandb
 from sklearn.metrics import (
     accuracy_score,
     precision_recall_fscore_support,
@@ -106,8 +107,27 @@ def train_and_evaluate(config: Dict[str, Any]) -> Dict[str, Any]:
         "eval_steps": 500,
         "gradient_accumulation_steps": 1,
         "weight_decay": 0.01,
+        "use_wandb": True,
+        "wandb_project": "emergency-healthcare-rag",
+        "wandb_run_name": None,
     }
     cfg = {**defaults, **config}
+
+    # Initialize wandb if enabled
+    if cfg.get("use_wandb", True):
+        wandb.init(
+            project=cfg["wandb_project"],
+            name=cfg["wandb_run_name"],
+            config=cfg,
+            tags=["text-classification", "healthcare", "emergency-medicine"],
+        )
+        # Log dataset info
+        wandb.log(
+            {
+                "dataset/train_file": cfg.get("train_file", ""),
+                "dataset/val_file": cfg.get("val_file", ""),
+            }
+        )
 
     required = ["train_file", "output_dir"]
     for r in required:
@@ -127,6 +147,16 @@ def train_and_evaluate(config: Dict[str, Any]) -> Dict[str, Any]:
     val_dataset = StatementSnippetDataset(
         val_path, tokenizer, max_length=cfg["max_length"]
     )
+
+    # Log dataset sizes to wandb
+    if cfg.get("use_wandb", True):
+        wandb.log(
+            {
+                "dataset/train_size": len(train_dataset),
+                "dataset/val_size": len(val_dataset),
+                "dataset/total_size": len(train_dataset) + len(val_dataset),
+            }
+        )
 
     model = AutoModelForSequenceClassification.from_pretrained(
         cfg["model_name"], num_labels=2
@@ -151,7 +181,7 @@ def train_and_evaluate(config: Dict[str, Any]) -> Dict[str, Any]:
         gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
         save_total_limit=3,
         logging_steps=100,
-        report_to=[],
+        report_to=["wandb"] if cfg.get("use_wandb", True) else [],
     )
 
     trainer = Trainer(
@@ -190,6 +220,45 @@ def train_and_evaluate(config: Dict[str, Any]) -> Dict[str, Any]:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     logger.info(f"Wrote validation predictions to {out_pred_file}")
 
+    # Log final metrics and artifacts to wandb
+    if cfg.get("use_wandb", True):
+        # Log final evaluation metrics
+        final_metrics = {
+            f"final/{k}": v for k, v in metrics.items() if not k.startswith("eval_")
+        }
+        wandb.log(final_metrics)
+
+        # Save model artifact
+        model_artifact = wandb.Artifact(
+            name=f"model-{wandb.run.id}",
+            type="model",
+            description=f"Fine-tuned {cfg['model_name']} for healthcare statement classification",
+        )
+        model_artifact.add_dir(cfg["output_dir"])
+        wandb.log_artifact(model_artifact)
+
+        # Save predictions artifact
+        pred_artifact = wandb.Artifact(
+            name=f"predictions-{wandb.run.id}",
+            type="predictions",
+            description="Validation set predictions and scores",
+        )
+        pred_artifact.add_file(str(out_pred_file))
+        wandb.log_artifact(pred_artifact)
+
+        # Log summary metrics
+        wandb.summary.update(
+            {
+                "best_f1": metrics.get("eval_f1", 0),
+                "best_accuracy": metrics.get("eval_accuracy", 0),
+                "best_roc_auc": metrics.get("eval_roc_auc", 0),
+                "train_samples": len(train_dataset),
+                "val_samples": len(val_dataset),
+            }
+        )
+
+        wandb.finish()
+
     result = {
         "metrics": metrics,
         "prediction_file": str(out_pred_file),
@@ -212,7 +281,12 @@ if __name__ == "__main__":
         "eval_steps": 500,
         "gradient_accumulation_steps": 1,
         "weight_decay": 0.01,
+        "use_wandb": True,
+        "wandb_project": "emergency-healthcare-rag",
+        "wandb_run_name": "bert-truth-classifier-baseline",
     }
     result = train_and_evaluate(config)
     print("Final evaluation metrics:", result["metrics"])
     print(f"Predictions written to: {result['prediction_file']}")
+    if config.get("use_wandb", True):
+        print(f"Training logged to wandb project: {config['wandb_project']}")
