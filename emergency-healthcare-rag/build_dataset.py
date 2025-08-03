@@ -122,8 +122,8 @@ def main():
     base = Path(args.data_root)
     topics_json = base / "topics.json"
     cleaned_root = base / "cleaned_topics"
-    statements_dir = base / "train" / "statements"
-    answers_dir = base / "train" / "answers"
+    statements_dir = base / "synthetic" / "statements"
+    answers_dir = base / "synthetic" / "answers"
 
     topic2id, _ = load_topics(topics_json)
     topic_name_map = get_topic_name_map(topic2id)
