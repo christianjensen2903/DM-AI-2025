@@ -9,32 +9,25 @@ class HeuristicAgent:
         self.last_action = "NOTHING"
         self.last_steer = None
 
-    def _gather_sensors(self, state: RaceCarPredictRequestDto):
-        # Build a dict of sensor name -> distance (clamped)
-        sensor_map = {}
-        for name, dist in state.sensors.items():
-            dist = max(0.0, min(1000.0, dist))
-            sensor_map[name] = dist
-        return sensor_map
-
     def decide(self, state: RaceCarPredictRequestDto) -> str:
-        sensors = self._gather_sensors(state)
         ego_speed = state.velocity["x"]
 
         # Helper getters with defaults
         def get(*names, default=1000.0):
-            return min([sensors.get(n, default) for n in names])
+            return min([state.sensors.get(n, default) for n in names])
 
-        front = sensors.get("front", 1000.0)
+        front = state.sensors.get("front", 1000.0)
         left_front = get("left_front", "left_side_front", "front_left_front")
         right_front = get("right_front", "right_side_front", "front_right_front")
-        left_side = sensors.get("left_side", 1000.0)
-        right_side = sensors.get("right_side", 1000.0)
+        left_side = state.sensors.get("left_side", 1000.0)
+        right_side = state.sensors.get("right_side", 1000.0)
 
         # Dynamic safe distance scales with speed (so faster -> more lookahead)
         safe_front = max(
             250, ego_speed * 15
         )  # tune multiplier if velocity units change
+
+        print(front < safe_front, safe_front, front)
 
         # 1. Immediate danger ahead: try to dodge
         if front < safe_front:

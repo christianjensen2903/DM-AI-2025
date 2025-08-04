@@ -1,9 +1,8 @@
 import pygame
 from time import sleep
 from typing import Any
-
-# import requests
-# from typing import List, Optional
+import requests
+from typing import List, Optional
 from ..mathematics.randomizer import seed, random_choice, random_number
 from ..elements.car import Car
 from ..elements.road import Road
@@ -120,50 +119,54 @@ def place_car():
 
 def get_action():
     """
-    Reads pygame events and returns an action string based on arrow keys or spacebar.
-    Up: ACCELERATE, Down: DECELERATE, Left: STEER_LEFT, Right: STEER_RIGHT, Space: NOTHING
+    Calls the API to get the next action based on current game state.
+    Returns a list containing the action string.
     """
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            exit()
-
-    # Holding down keys
-    keys = pygame.key.get_pressed()
-
-    # Priority: accelerate, decelerate, steer left, steer right, nothing
-    if keys[pygame.K_RIGHT]:
-        return ["ACCELERATE"]
-    if keys[pygame.K_LEFT]:
-        return ["DECELERATE"]
-    if keys[pygame.K_UP]:
-        return ["STEER_LEFT"]
-    if keys[pygame.K_DOWN]:
-        return ["STEER_RIGHT"]
-    if keys[pygame.K_SPACE]:
+    if STATE is None:
         return ["NOTHING"]
 
-    # Just clicking once and it keeps doing it until a new press
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            exit()
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RIGHT:
-                return ["ACCELERATE"]
-            elif event.key == pygame.K_LEFT:
-                return ["DECELERATE"]
-            elif event.key == pygame.K_UP:
-                return ["STEER_LEFT"]
-            elif event.key == pygame.K_DOWN:
-                return ["STEER_RIGHT"]
-            elif event.key == pygame.K_SPACE:
-                return ["NOTHING"]
+    try:
+        # Prepare sensor data
+        sensors_data = {}
+        for sensor in STATE.sensors:
+            if sensor.reading is not None:
+                sensors_data[sensor.name] = sensor.reading
+            else:
+                sensors_data[sensor.name] = 1000.0  # Max distance if no reading
 
-    # If no relevant key is pressed, repeat last action or do nothing
-    # return STATE.latest_action if hasattr(STATE, "latest_action") else "NOTHING"
-    return "NOTHING"
+        # Prepare request data
+        request_data = {
+            "did_crash": STATE.crashed,
+            "elapsed_ticks": STATE.ticks,
+            "distance": STATE.distance,
+            "velocity": {"x": STATE.ego.velocity.x, "y": STATE.ego.velocity.y},
+            "sensors": sensors_data,
+        }
+
+        # Make API call
+        response = requests.post(
+            f"{STATE.api_url}/predict",
+            json=request_data,
+            timeout=1.0,  # 1 second timeout
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            actions = result.get("actions", [])
+            if actions:
+                return actions  # Return the list of actions from API
+            else:
+                return ["NOTHING"]
+        else:
+            print(f"API call failed with status code: {response.status_code}")
+            return ["NOTHING"]
+
+    except requests.exceptions.RequestException as e:
+        print(f"API call failed: {e}")
+        return ["NOTHING"]
+    except Exception as e:
+        print(f"Error in get_action: {e}")
+        return ["NOTHING"]
 
 
 def get_action_json():
@@ -266,6 +269,12 @@ def game_loop(
         pygame.display.set_caption("Race Car Game")
 
     while True:
+        # Handle pygame events (including quit)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
         delta = clock.tick(60)  # Limit to 60 FPS
         STATE.elapsed_game_time += delta
         STATE.ticks += 1
