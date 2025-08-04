@@ -9,8 +9,9 @@ from utils import load_cleaned_documents
 from retrieval import build_retrievers
 from text_normalizer import normalize_medical_text
 import dotenv
-from typing import List
+from typing import List, Dict
 from ollama import chat
+import json
 
 dotenv.load_dotenv()
 
@@ -18,7 +19,7 @@ base = Path("data")
 topics_json = base / "topics.json"
 cleaned_root = base / "cleaned_topics"
 
-topic2id, _ = load_topics(topics_json)
+topic2id, id2topic = load_topics(topics_json)
 
 normalize = True
 
@@ -43,13 +44,6 @@ class LLMPredictionRequestDto(BaseModel):
     statement: str
 
 
-class LLMPredictionResponseDto(BaseModel):
-    statement_is_true: bool
-    statement_topic: int
-    retrieved_snippets: List[str]
-    llm_response: str
-
-
 app = FastAPI()
 start_time = time.time()
 
@@ -67,9 +61,10 @@ def index():
     return "Your endpoint is running!"
 
 
-def format_prompt(statement: str, snippets: List[str]) -> str:
+def format_prompt(statement: str, snippets: List[Dict]) -> str:
+
     prompt = """
-You are a helpful medical assistant. Your task is to determine whether the following medical statement is supported by the evidence provided.
+You are a helpful medical assistant. Your task is to determine whether the following medical statement is supported by the evidence provided and predict the most relevant medical topic.
 
 Statement:
 {statement}
@@ -77,10 +72,19 @@ Statement:
 Retrieved Snippets:
 {snippets}
 
-Based only on the above snippets, is the statement true or false? Reply with a single word: True or False.
+Based only on the above snippets, please provide your response in the following format:
+{{"statement_is_true": true/false, "statement_topic": <topic_id>}}
+
+Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
 """
-    snippets_text = "\n\n".join(f"Snippet {i+1}:\n{s}" for i, s in enumerate(snippets))
-    return prompt.format(statement=statement.strip(), snippets=snippets_text.strip())
+    snippets_text = "\n\n".join(
+        f"Snippet {i+1} (Topic: {s['topic_name']}, Topic ID: {s['topic_id']}):\n{s['content']}"
+        for i, s in enumerate(snippets)
+    )
+    return prompt.format(
+        statement=statement.strip(),
+        snippets=snippets_text.strip(),
+    )
 
 
 def query_llm(prompt: str) -> str:
@@ -88,10 +92,25 @@ def query_llm(prompt: str) -> str:
         "qwen3:32b", messages=[{"role": "user", "content": prompt}], think=False
     )
     content = response.message.content
-    return content.strip() if content else "False"
+    if not content:
+        print(f"No response from LLM: {response}")
+        return "{{'statement_is_true': False, 'statement_topic': -1}}"
+
+    return content.strip()
 
 
-@app.post("/predict", response_model=LLMPredictionResponseDto)
+def parse_llm_response(llm_response: str) -> tuple[bool, int]:
+    """Parse LLM response to extract truth value and predicted topic"""
+    try:
+        response = json.loads(llm_response)
+        return response["statement_is_true"], response["statement_topic"]
+    except Exception as e:
+        print(f"Error parsing LLM response: {e}")
+        print(f"LLM response: {llm_response}")
+        return False, -1
+
+
+@app.post("/predict", response_model=MedicalStatementResponseDto)
 def predict_llm_endpoint(request: LLMPredictionRequestDto):
     start = time.time()
 
@@ -100,23 +119,27 @@ def predict_llm_endpoint(request: LLMPredictionRequestDto):
 
     # Retrieval
     retrieved = retriever.invoke(request.statement)
-    statement_topic = retrieved[0].metadata.get("topic_id", -1)
 
-    # Get top 5 snippets
-    top_snippets = [doc.page_content for doc in retrieved[:5]]
+    # Get top 5 snippets with topic information
+    top_snippets = []
+    for doc in retrieved[:5]:
+        snippet_info = {
+            "content": doc.page_content,
+            "topic_name": doc.metadata.get("topic_name", "Unknown"),
+            "topic_id": doc.metadata.get("topic_id", -1),
+        }
+        top_snippets.append(snippet_info)
 
     # Format prompt and query LLM
     prompt = format_prompt(request.statement, top_snippets)
     llm_response = query_llm(prompt)
 
     # Parse LLM response
-    statement_is_true = llm_response.lower().startswith("true")
+    statement_is_true, predicted_topic_id = parse_llm_response(llm_response)
 
-    response = LLMPredictionResponseDto(
+    response = MedicalStatementResponseDto(
         statement_is_true=statement_is_true,
-        statement_topic=statement_topic,
-        retrieved_snippets=top_snippets,
-        llm_response=llm_response,
+        statement_topic=predicted_topic_id,
     )
 
     end = time.time()
