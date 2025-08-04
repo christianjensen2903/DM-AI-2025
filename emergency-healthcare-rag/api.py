@@ -8,9 +8,7 @@ from pathlib import Path
 from utils import load_cleaned_documents
 from retrieval import build_retrievers
 from text_normalizer import normalize_medical_text
-import openai
 import dotenv
-import ollama
 from typing import List
 from ollama import chat
 
@@ -86,11 +84,9 @@ Based only on the above snippets, is the statement true or false? Reply with a s
 
 
 def query_llm(prompt: str) -> str:
-    print(prompt)
     response = chat(
         "qwen3:32b", messages=[{"role": "user", "content": prompt}], think=False
     )
-    print(response)
     content = response.message.content
     return content.strip() if content else "False"
 
