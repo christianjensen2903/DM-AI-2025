@@ -118,7 +118,9 @@ client = openai.OpenAI(base_url="http://localhost:11434/v1", api_key="dummy")
 
 def query_llm(prompt: str) -> str:
     response = client.chat.completions.create(
-        model="local", messages=[{"role": "user", "content": prompt}], temperature=0.0
+        model="qwen3:32b",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.0,
     )
     content = response.choices[0].message.content
     return content.strip() if content else "False"
