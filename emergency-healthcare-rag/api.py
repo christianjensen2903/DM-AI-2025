@@ -89,7 +89,7 @@ Determine if the statement is true or false based on the evidence, and identify 
 
 def query_llm(prompt: str) -> str:
     response = chat(
-        "qwen3:32b", messages=[{"role": "user", "content": prompt}], think=False
+        "deepseek-r1:32b", messages=[{"role": "user", "content": prompt}], think=False
     )
     content = response.message.content
     if not content:
