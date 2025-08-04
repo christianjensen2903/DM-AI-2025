@@ -156,15 +156,6 @@ def predict_llm_endpoint(request: LLMPredictionRequestDto):
     return response
 
 
-port = 8000
+if __name__ == "__main__":
 
-# Setup ngrok tunnel
-ngrok_tunnel = ngrok.connect(port)
-print()
-print()
-print(ngrok_tunnel.public_url)
-print()
-print()
-
-# Run the server
-uvicorn.run(app, port=port)
+    uvicorn.run("api:app", host=HOST, port=PORT)
