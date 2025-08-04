@@ -88,9 +88,7 @@ Determine if the statement is true or false based on the evidence, and identify 
 
 
 def query_llm(prompt: str) -> str:
-    response = chat(
-        "gemma3:27b", messages=[{"role": "user", "content": prompt}], think=False
-    )
+    response = chat("qwen3:32b", messages=[{"role": "user", "content": prompt}])
     content = response.message.content
     if not content:
         print(f"No response from LLM: {response}")
@@ -136,7 +134,7 @@ def predict_llm_endpoint(request: LLMPredictionRequestDto):
 
     # Get top 5 snippets with topic information
     top_snippets = []
-    for doc in retrieved[:5]:
+    for doc in retrieved[:10]:
         snippet_info = {
             "content": doc.page_content,
             "topic_name": doc.metadata.get("topic_name", "Unknown"),
