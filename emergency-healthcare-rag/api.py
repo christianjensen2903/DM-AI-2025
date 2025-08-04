@@ -72,7 +72,7 @@ Statement:
 Retrieved Snippets:
 {snippets}
 
-Based only on the above snippets, please provide your response in the following format:
+Based only on the above snippets, please provide your response in the following format and no other text:
 {{"statement_is_true": true/false, "statement_topic": <topic_id>}}
 
 Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
@@ -89,7 +89,7 @@ Determine if the statement is true or false based on the evidence, and identify 
 
 def query_llm(prompt: str) -> str:
     response = chat(
-        "deepseek-r1:32b", messages=[{"role": "user", "content": prompt}], think=False
+        "gemma3:27b", messages=[{"role": "user", "content": prompt}], think=False
     )
     content = response.message.content
     if not content:
