@@ -13,11 +13,11 @@ def test_game_with_api():
     pygame.init()
 
     print("🚗 Starting race car game with API integration...")
-    print("API URL: http://localhost:9052")
+    print("API URL: http://localhost:8000")
 
     # Initialize the game state with the API URL
     initialize_game_state(
-        api_url="http://localhost:9052",
+        api_url="http://localhost:8000",
         seed_value=random.randint(1, 1000000),
         sensor_removal=0,  # Keep all sensors
     )

@@ -3,7 +3,6 @@ import uvicorn
 import datetime
 from fastapi import Body, FastAPI
 from dtos import RaceCarPredictRequestDto, RaceCarPredictResponseDto
-from example import return_action
 from pyngrok import ngrok
 from heuristic import HeuristicAgent
 
@@ -15,7 +14,6 @@ agent = HeuristicAgent()
 
 @app.post("/predict", response_model=RaceCarPredictResponseDto)
 def predict(request: RaceCarPredictRequestDto = Body(...)):
-    print(request)
     action = agent.decide(request)
     return RaceCarPredictResponseDto(actions=[action])
 
@@ -44,6 +42,6 @@ PORT = 9052
 # print()
 # print()
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    uvicorn.run("api:app", host=HOST, port=PORT)
+#     uvicorn.run("api:app", host=HOST, port=PORT)
