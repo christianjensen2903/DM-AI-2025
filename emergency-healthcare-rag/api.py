@@ -79,10 +79,15 @@ def predict_endpoint(request: MedicalStatementRequestDto):
     retrieved = retriever.invoke(request.statement)
     statement_topic = retrieved[0].metadata.get("topic_id", -1)
 
-    processed_query = retriever.preprocess_func(request.statement)
-    score = max(retriever.vectorizer.get_scores(processed_query))
+    # Get top 5 snippets
+    top_snippets = [doc.page_content for doc in retrieved[:5]]
 
-    statement_is_true = score >= 79.33035
+    # Format prompt and query LLM
+    prompt = format_prompt(request.statement, top_snippets)
+    llm_response = query_llm(prompt)
+
+    # Parse LLM response
+    statement_is_true = llm_response.lower().startswith("true")
 
     response = MedicalStatementResponseDto(
         statement_is_true=statement_is_true, statement_topic=statement_topic
