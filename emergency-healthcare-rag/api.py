@@ -85,13 +85,12 @@ Based only on the above snippets, is the statement true or false? Reply with a s
     return prompt.format(statement=statement.strip(), snippets=snippets_text.strip())
 
 
-client = openai.OpenAI(base_url="http://localhost:11434/v1", api_key="dummy")
-
-
 def query_llm(prompt: str) -> str:
+    print(prompt)
     response = chat(
         "qwen3:32b", messages=[{"role": "user", "content": prompt}], think=False
     )
+    print(response)
     content = response.message.content
     return content.strip() if content else "False"
 
