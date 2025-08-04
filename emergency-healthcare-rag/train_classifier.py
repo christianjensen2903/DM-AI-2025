@@ -175,9 +175,11 @@ def train_and_evaluate(config: Dict[str, Any]) -> Dict[str, Any]:
         learning_rate=cfg["learning_rate"],
         num_train_epochs=cfg["epochs"],
         weight_decay=cfg["weight_decay"],
+        metric_for_best_model="accuracy",
+        greater_is_better=True,
         load_best_model_at_end=False,
         gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
-        logging_steps=100,
+        logging_steps=cfg["eval_steps"],
         report_to=["wandb"] if cfg.get("use_wandb", True) else [],
     )
 
