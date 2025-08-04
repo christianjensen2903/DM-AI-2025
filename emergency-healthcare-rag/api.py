@@ -101,12 +101,26 @@ def query_llm(prompt: str) -> str:
 
 def parse_llm_response(llm_response: str) -> tuple[bool, int]:
     """Parse LLM response to extract truth value and predicted topic"""
+    # Clean the response - remove markdown code blocks if present
+    cleaned_response = llm_response.strip()
+
+    # Remove markdown code block markers if present
+    if cleaned_response.startswith("```json"):
+        cleaned_response = cleaned_response[7:]  # Remove "```json"
+    if cleaned_response.startswith("```"):
+        cleaned_response = cleaned_response[3:]  # Remove "```"
+    if cleaned_response.endswith("```"):
+        cleaned_response = cleaned_response[:-3]  # Remove trailing "```"
+
+    cleaned_response = cleaned_response.strip()
+
     try:
-        response = json.loads(llm_response)
+        response = json.loads(cleaned_response)
         return response["statement_is_true"], response["statement_topic"]
     except Exception as e:
         print(f"Error parsing LLM response: {e}")
-        print(f"LLM response: {llm_response}")
+        print(f"Original LLM response: {llm_response}")
+        print(f"Cleaned response: {cleaned_response}")
         return False, -1
 
 
