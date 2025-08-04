@@ -14,8 +14,10 @@ agent = HeuristicAgent()
 
 @app.post("/predict", response_model=RaceCarPredictResponseDto)
 def predict(request: RaceCarPredictRequestDto = Body(...)):
-    action = agent.decide(request)
-    return RaceCarPredictResponseDto(actions=[action])
+
+    actions = agent.decide(request)
+
+    return RaceCarPredictResponseDto(actions=actions)
 
 
 @app.get("/api")

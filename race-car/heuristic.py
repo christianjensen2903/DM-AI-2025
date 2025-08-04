@@ -1,80 +1,106 @@
-from src.game.core import GameState
-from dtos import RaceCarPredictRequestDto, RaceCarPredictResponseDto
+from dtos import RaceCarPredictRequestDto
 
 ACTIONS = ["NOTHING", "ACCELERATE", "DECELERATE", "STEER_RIGHT", "STEER_LEFT"]
 
 
+def switch_up():
+    return ["STEER_RIGHT"] * 47 + ["STEER_LEFT"] * 47
+
+
+def switch_down():
+    return ["STEER_LEFT"] * 47 + ["STEER_RIGHT"] * 47
+
+
+def brake():
+    return ["DECELERATE"] * 47
+
+
+def find_safest_side(
+    sensors: dict[str, float | None], min_gap: float = 1.0, hysteresis: float = 0.1
+) -> str | None:
+    """
+    Returns "left" or "right" if that side has clearly more clearance,
+    otherwise None.
+    min_gap: minimum required clearance on a side to consider it.
+    hysteresis: relative difference required to prefer one side over the other.
+    """
+    left_keys = [
+        "back_left_back",
+        "left_back",
+        "left_side_back",
+        "left_side",
+        "left_side_front",
+        "left_front",
+    ]
+    right_keys = [
+        "back_right_back",
+        "right_back",
+        "right_side_back",
+        "right_side",
+        "right_side_front",
+        "right_front",
+    ]
+
+    def min_clearance(keys):
+        vals = []
+        for k in keys:
+            v = sensors.get(k, 1000)
+            vals.append(v)
+        return min(vals)
+
+    left = min_clearance(left_keys)
+    right = min_clearance(right_keys)
+    print(f"Left: {left}, Right: {right}")
+
+    # Neither side has enough clearance
+    if left < min_gap and right < min_gap:
+        return None
+
+    # Prefer side with meaningfully larger clearance
+    if left > right * (1 + hysteresis) and left >= min_gap:
+        return "left"
+    if right > left * (1 + hysteresis) and right >= min_gap:
+        return "right"
+
+    return None
+
+
 class HeuristicAgent:
     def __init__(self):
-        self.last_action = "NOTHING"
-        self.last_steer = None
+        self.is_braking = False
+        self.current_lane = 0
+        self.max_speed = 10
 
-    def decide(self, state: RaceCarPredictRequestDto) -> str:
+    def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
         ego_speed = state.velocity["x"]
+        print(f"Speed: {ego_speed}")
 
-        # Helper getters with defaults
-        def get(*names, default=1000.0):
-            return min([state.sensors.get(n, default) for n in names])
+        if state.sensors.get("front") and not self.is_braking:
+            print("Braking. Distance to front: ", state.sensors.get("front"))
+            self.is_braking = True
+            return brake()
 
-        front = state.sensors.get("front", 1000.0)
-        left_front = get("left_front", "left_side_front", "front_left_front")
-        right_front = get("right_front", "right_side_front", "front_right_front")
-        left_side = state.sensors.get("left_side", 1000.0)
-        right_side = state.sensors.get("right_side", 1000.0)
-
-        # Dynamic safe distance scales with speed (so faster -> more lookahead)
-        safe_front = max(
-            250, ego_speed * 15
-        )  # tune multiplier if velocity units change
-
-        print(front < safe_front, safe_front, front)
-
-        # 1. Immediate danger ahead: try to dodge
-        if front < safe_front:
-            # choose side with more clearance
-            if right_front > left_front + 50 and right_front > 150:
-                self.last_steer = "STEER_RIGHT"
-                return "STEER_RIGHT"
-            elif left_front > right_front + 50 and left_front > 150:
-                self.last_steer = "STEER_LEFT"
-                return "STEER_LEFT"
+        if self.is_braking:
+            print("Finding safest side")
+            # Check which lane is safe i.e. has maximum distance to side sensors
+            # If there is no safe lane, do nothing
+            # If there is a safe lane, switch to it
+            # If there is a safe lane, switch to it
+            safest_side = find_safest_side(state.sensors, min_gap=10)
+            print(f"Safest side: {safest_side}")
+            if safest_side == "left":
+                self.current_lane -= 1
+                self.is_braking = False
+                return switch_up()
+            elif safest_side == "right":
+                self.current_lane += 1
+                self.is_braking = False
+                return switch_down()
             else:
-                # no good dodge path; slow down if moving fast
-                if ego_speed > 5:
-                    return "DECELERATE"
-                else:
-                    return "NOTHING"
+                return ["NOTHING"]
 
-        # 2. Lane centering: if drifted too close to side walls
-        side_diff = left_side - right_side
-        # if too close to left wall, steer right; vice versa
-        if side_diff < -120:
-            self.last_steer = "STEER_RIGHT"
-            return "STEER_RIGHT"
-        if side_diff > 120:
-            self.last_steer = "STEER_LEFT"
-            return "STEER_LEFT"
+        if ego_speed < self.max_speed:
+            print("Accelerating")
+            return ["ACCELERATE"] * 20
 
-        # 3. If path ahead is clear, accelerate (but cap to avoid overshooting)
-        if front > 600 and ego_speed < 25:
-            return "ACCELERATE"
-
-        # 4. Mild adjustments: prefer to keep last steering until obstacle changes
-        if self.last_steer in ("STEER_LEFT", "STEER_RIGHT"):
-            # if the direction is still reasonably safe, keep it for smoothing
-            if self.last_steer == "STEER_LEFT" and left_front > 300:
-                return "STEER_LEFT"
-            if self.last_steer == "STEER_RIGHT" and right_front > 300:
-                return "STEER_RIGHT"
-            # else reset
-            self.last_steer = None
-
-        # 5. Default: maintain speed / nothing
-        return "NOTHING"
-
-    def next_actions(
-        self, state: RaceCarPredictRequestDto, batch_size: int = 10
-    ) -> list[str]:
-        action = self.decide(state)
-        self.last_action = action
-        return [action] * batch_size
+        return ["NOTHING"]

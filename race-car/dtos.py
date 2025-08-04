@@ -6,7 +6,7 @@ class RaceCarPredictRequestDto(BaseModel):
     elapsed_ticks: int
     distance: float
     velocity: dict[str, float]
-    sensors: dict[str, float]
+    sensors: dict[str, float | None]
 
 
 class RaceCarPredictResponseDto(BaseModel):

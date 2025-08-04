@@ -36,6 +36,7 @@ class Car:
         if self == ego:
             self.y += self.velocity.y
             return
+
         self.x += self.velocity.x - ego.velocity.x
         self.y += self.velocity.y
         rn = random_number() - 0.5

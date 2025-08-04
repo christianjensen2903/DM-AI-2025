@@ -169,6 +169,110 @@ def get_action():
         return ["NOTHING"]
 
 
+# def switch_up():
+#     return ["STEER_RIGHT"] * 47 + ["STEER_LEFT"] * 47
+
+
+# def switch_down():
+#     return ["STEER_LEFT"] * 47 + ["STEER_RIGHT"] * 47
+
+
+# def get_action():
+#     """
+#     Reads pygame events and returns an action string based on arrow keys or spacebar.
+#     Up: ACCELERATE, Down: DECELERATE, Left: STEER_LEFT, Right: STEER_RIGHT, Space: NOTHING
+#     """
+
+#     for event in pygame.event.get():
+#         if event.type == pygame.QUIT:
+#             pygame.quit()
+#             exit()
+
+#     # Holding down keys
+#     keys = pygame.key.get_pressed()
+
+#     # Priority: accelerate, decelerate, steer left, steer right, nothing
+#     if keys[pygame.K_RIGHT]:
+#         return ["ACCELERATE"]
+#     if keys[pygame.K_LEFT]:
+#         return ["DECELERATE"]
+#     if keys[pygame.K_UP]:
+#         return switch_up()
+#     if keys[pygame.K_DOWN]:
+#         return switch_down()
+#     if keys[pygame.K_SPACE]:
+#         return ["NOTHING"]
+
+#     # Just clicking once and it keeps doing it until a new press
+#     for event in pygame.event.get():
+#         if event.type == pygame.QUIT:
+#             pygame.quit()
+#             exit()
+#         if event.type == pygame.KEYDOWN:
+#             if event.key == pygame.K_RIGHT:
+#                 return ["ACCELERATE"]
+#             elif event.key == pygame.K_LEFT:
+#                 return ["DECELERATE"]
+#             elif event.key == pygame.K_UP:
+#                 return switch_up()
+#             elif event.key == pygame.K_DOWN:
+#                 return switch_down()
+#             elif event.key == pygame.K_SPACE:
+#                 return ["NOTHING"]
+
+#     # If no relevant key is pressed, repeat last action or do nothing
+#     # return STATE.latest_action if hasattr(STATE, "latest_action") else "NOTHING"
+#     return "NOTHING"
+
+
+# def get_action():
+#     """
+#     Reads pygame events and returns an action string based on arrow keys or spacebar.
+#     Up: ACCELERATE, Down: DECELERATE, Left: STEER_LEFT, Right: STEER_RIGHT, Space: NOTHING
+#     """
+
+#     for event in pygame.event.get():
+#         if event.type == pygame.QUIT:
+#             pygame.quit()
+#             exit()
+
+#     # Holding down keys
+#     keys = pygame.key.get_pressed()
+
+#     # Priority: accelerate, decelerate, steer left, steer right, nothing
+#     if keys[pygame.K_RIGHT]:
+#         return ["ACCELERATE"]
+#     if keys[pygame.K_LEFT]:
+#         return ["DECELERATE"]
+#     if keys[pygame.K_UP]:
+#         return ["STEER_LEFT"]
+#     if keys[pygame.K_DOWN]:
+#         return ["STEER_RIGHT"]
+#     if keys[pygame.K_SPACE]:
+#         return ["NOTHING"]
+
+#     # Just clicking once and it keeps doing it until a new press
+#     for event in pygame.event.get():
+#         if event.type == pygame.QUIT:
+#             pygame.quit()
+#             exit()
+#         if event.type == pygame.KEYDOWN:
+#             if event.key == pygame.K_RIGHT:
+#                 return ["ACCELERATE"]
+#             elif event.key == pygame.K_LEFT:
+#                 return ["DECELERATE"]
+#             elif event.key == pygame.K_UP:
+#                 return ["STEER_LEFT"]
+#             elif event.key == pygame.K_DOWN:
+#                 return ["STEER_RIGHT"]
+#             elif event.key == pygame.K_SPACE:
+#                 return ["NOTHING"]
+
+#     # If no relevant key is pressed, repeat last action or do nothing
+#     # return STATE.latest_action if hasattr(STATE, "latest_action") else "NOTHING"
+#     return "NOTHING"
+
+
 def get_action_json():
     """
     Get action depending on tick from the actions_log.json.
