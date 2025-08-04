@@ -10,7 +10,9 @@ from retrieval import build_retrievers
 from text_normalizer import normalize_medical_text
 import openai
 import dotenv
+import ollama
 from typing import List
+from ollama import chat
 
 dotenv.load_dotenv()
 
@@ -67,36 +69,6 @@ def index():
     return "Your endpoint is running!"
 
 
-@app.post("/predict", response_model=MedicalStatementResponseDto)
-def predict_endpoint(request: MedicalStatementRequestDto):
-
-    start = time.time()
-
-    if normalize:
-        request.statement = normalize_medical_text(request.statement, is_query=True)
-
-    # Retrieval
-    retrieved = retriever.invoke(request.statement)
-    statement_topic = retrieved[0].metadata.get("topic_id", -1)
-
-    # Get top 5 snippets
-    top_snippets = [doc.page_content for doc in retrieved[:5]]
-
-    # Format prompt and query LLM
-    prompt = format_prompt(request.statement, top_snippets)
-    llm_response = query_llm(prompt)
-
-    # Parse LLM response
-    statement_is_true = llm_response.lower().startswith("true")
-
-    response = MedicalStatementResponseDto(
-        statement_is_true=statement_is_true, statement_topic=statement_topic
-    )
-    end = time.time()
-    print(f"Time: {end - start:2f}")
-    return response
-
-
 def format_prompt(statement: str, snippets: List[str]) -> str:
     prompt = """
 You are a helpful medical assistant. Your task is to determine whether the following medical statement is supported by the evidence provided.
@@ -117,16 +89,14 @@ client = openai.OpenAI(base_url="http://localhost:11434/v1", api_key="dummy")
 
 
 def query_llm(prompt: str) -> str:
-    response = client.chat.completions.create(
-        model="qwen3:32b",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.0,
+    response = chat(
+        "qwen3:32b", messages=[{"role": "user", "content": prompt}], think=False
     )
-    content = response.choices[0].message.content
+    content = response.message.content
     return content.strip() if content else "False"
 
 
-@app.post("/predict_llm", response_model=LLMPredictionResponseDto)
+@app.post("/predict", response_model=LLMPredictionResponseDto)
 def predict_llm_endpoint(request: LLMPredictionRequestDto):
     start = time.time()
 
