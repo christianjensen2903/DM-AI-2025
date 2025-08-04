@@ -2,16 +2,12 @@ import uvicorn
 from fastapi import FastAPI
 import datetime
 import time
-from utils import validate_prediction, load_topics
-from model import predict
-from loguru import logger
+from utils import load_topics
 from pydantic import BaseModel
 from pathlib import Path
 from utils import load_cleaned_documents
 from retrieval import build_retrievers
 from text_normalizer import normalize_medical_text
-from pyngrok import ngrok
-from retrieval_analysis import check_top2_different
 import openai
 import dotenv
 from typing import List
