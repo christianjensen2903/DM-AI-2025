@@ -1,5 +1,6 @@
 import pygame
 from time import sleep
+from typing import Any
 
 # import requests
 # from typing import List, Optional
@@ -22,12 +23,12 @@ MAX_MS = 60 * 1000600  # 60 seconds flat
 # Define game state
 class GameState:
     def __init__(self, api_url: str):
-        self.ego = None
-        self.cars = []
-        self.car_bucket = []
-        self.sensors = []
-        self.road = None
-        self.statistics = None
+        self.ego: Car = None
+        self.cars: list[Car] = []
+        self.car_bucket: list[Car] = []
+        self.sensors: list[Sensor] = []
+        self.road: Road = None
+        self.statistics: dict[str, Any] = {}
         self.sensors_enabled = True
         self.api_url = api_url
         self.crashed = False

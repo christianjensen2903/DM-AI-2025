@@ -4,41 +4,46 @@ import datetime
 from fastapi import Body, FastAPI
 from dtos import RaceCarPredictRequestDto, RaceCarPredictResponseDto
 from example import return_action
-
-HOST = "0.0.0.0"
-PORT = 9052
-
+from pyngrok import ngrok
+from heuristic import HeuristicAgent
 
 app = FastAPI()
 start_time = time.time()
 
-@app.post('/predict', response_model=RaceCarPredictResponseDto)
-def predict(request: RaceCarPredictRequestDto = Body(...)):
-    action = return_action(request.dict())
-    return RaceCarPredictResponseDto(
-        action_type=action['action_type'],
-        actions=action['actions']
-    )
+agent = HeuristicAgent()
 
-@app.get('/api')
+
+@app.post("/predict", response_model=RaceCarPredictResponseDto)
+def predict(request: RaceCarPredictRequestDto = Body(...)):
+    print(request)
+    action = agent.decide(request)
+    return RaceCarPredictResponseDto(actions=[action])
+
+
+@app.get("/api")
 def hello():
     return {
         "service": "race-car-usecase",
-        "uptime": '{}'.format(datetime.timedelta(seconds=time.time() - start_time))
+        "uptime": "{}".format(datetime.timedelta(seconds=time.time() - start_time)),
     }
 
 
-@app.get('/')
+@app.get("/")
 def index():
     return "Your endpoint is running!"
 
 
+HOST = "0.0.0.0"
+PORT = 9052
 
+# Setup ngrok tunnel
+# ngrok_tunnel = ngrok.connect(PORT)
+# print()
+# print()
+# print(ngrok_tunnel.public_url)
+# print()
+# print()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    uvicorn.run(
-        'api:app',
-        host=HOST,
-        port=PORT
-    )
+    uvicorn.run("api:app", host=HOST, port=PORT)
