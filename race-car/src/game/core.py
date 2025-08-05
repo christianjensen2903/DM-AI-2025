@@ -11,8 +11,10 @@ from ..mathematics.vector import Vector
 import json
 
 # Define constants
-SCREEN_WIDTH = 1600
-SCREEN_HEIGHT = 1200
+SURFACE_WIDTH = 1600
+SURFACE_HEIGHT = 1200
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
 LANE_COUNT = 5
 CAR_COLORS = ["yellow", "blue", "red"]
 MAX_TICKS = 60 * 60  # 60 seconds @ 60 fps
@@ -65,7 +67,7 @@ def update_cars():
 
 def remove_passed_cars():
     min_distance = -1000
-    max_distance = SCREEN_WIDTH + 1000
+    max_distance = SURFACE_WIDTH + 1000
     cars_to_keep = []
     cars_to_retire = []
 
@@ -112,7 +114,7 @@ def place_car():
     STATE.cars.append(car)
 
     car_sprite = car.sprite
-    car.x = (SCREEN_WIDTH * x_offset) - (car_sprite.get_width() // 2)
+    car.x = (SURFACE_WIDTH * x_offset) - (car_sprite.get_width() // 2)
     car.y = int((lane.y_start + lane.y_end) / 2 - car_sprite.get_height() / 2)
     car.lane = lane
 
@@ -295,7 +297,7 @@ def initialize_game_state(api_url: str, seed_value: str, sensor_removal=0):
     STATE = GameState(api_url)
 
     # Create environment
-    STATE.road = Road(SCREEN_WIDTH, SCREEN_HEIGHT, LANE_COUNT)
+    STATE.road = Road(SURFACE_WIDTH, SURFACE_HEIGHT, LANE_COUNT)
     middle_lane = STATE.road.middle_lane()
     lane_height = STATE.road.get_lane_height()
 
@@ -305,7 +307,7 @@ def initialize_game_state(api_url: str, seed_value: str, sensor_removal=0):
         "yellow", ego_velocity, lane=middle_lane, target_height=int(lane_height * 0.8)
     )
     ego_sprite = STATE.ego.sprite
-    STATE.ego.x = (SCREEN_WIDTH // 2) - (ego_sprite.get_width() // 2)
+    STATE.ego.x = (SURFACE_WIDTH // 2) - (ego_sprite.get_width() // 2)
     STATE.ego.y = int(
         (middle_lane.y_start + middle_lane.y_end) / 2 - ego_sprite.get_height() / 2
     )
@@ -369,6 +371,7 @@ def game_loop(
     screen = None
     actions = []
     if verbose:
+        surface = pygame.Surface((SURFACE_WIDTH, SURFACE_HEIGHT))
         screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Race Car Game")
 
@@ -427,25 +430,25 @@ def game_loop(
 
         # Render game (only if verbose)
         if verbose:
-            screen.fill((0, 0, 0))  # Clear the screen with black
+            surface.fill((0, 0, 0))  # Clear the screen with black
 
             # Draw the road background
-            screen.blit(STATE.road.surface, (0, 0))
+            surface.blit(STATE.road.surface, (0, 0))
 
             # Draw all walls
             for wall in STATE.road.walls:
-                wall.draw(screen)
+                wall.draw(surface)
 
             # Draw all cars
             for car in STATE.cars:
                 if car.sprite:
-                    screen.blit(car.sprite, (car.x, car.y))
+                    surface.blit(car.sprite, (car.x, car.y))
                     bounds = car.get_bounds()
                     color = (255, 0, 0) if car == STATE.ego else (0, 255, 0)
-                    pygame.draw.rect(screen, color, bounds, width=2)
+                    pygame.draw.rect(surface, color, bounds, width=2)
                 else:
                     pygame.draw.rect(
-                        screen,
+                        surface,
                         (255, 255, 0) if car == STATE.ego else (0, 0, 255),
                         car.rect,
                     )
@@ -453,7 +456,9 @@ def game_loop(
             # Draw sensors if enabled
             if STATE.sensors_enabled:
                 for sensor in STATE.sensors:
-                    sensor.draw(screen)
+                    sensor.draw(surface)
+
+            pygame.transform.smoothscale(surface, (SCREEN_WIDTH, SCREEN_HEIGHT), screen)
 
             pygame.display.flip()
 
