@@ -12,13 +12,16 @@ def test_game_with_api():
     """Test the game with API integration."""
     pygame.init()
 
+    # seed = random.randint(1, 1000000)
+    seed = 570423
+
     print("🚗 Starting race car game with API integration...")
     print("API URL: http://localhost:8000")
 
     # Initialize the game state with the API URL
     initialize_game_state(
         api_url="http://localhost:8000",
-        seed_value=random.randint(1, 1000000),
+        seed_value=seed,
         sensor_removal=0,  # Keep all sensors
     )
 
@@ -38,6 +41,8 @@ def test_game_with_api():
     except Exception as e:
         print(f"❌ Error during game: {e}")
         raise
+
+    print("Seed:", seed)
 
 
 if __name__ == "__main__":

@@ -130,49 +130,38 @@ def get_action():
     if STATE is None:
         return ["NOTHING"]
 
-    try:
-        # Prepare sensor data
-        sensors_data = {}
-        for sensor in STATE.sensors:
-            if sensor.reading is not None:
-                sensors_data[sensor.name] = sensor.reading
-            else:
-                sensors_data[sensor.name] = 1000.0  # Max distance if no reading
+    # Prepare sensor data
+    sensors_data = {}
+    for sensor in STATE.sensors:
+        sensors_data[sensor.name] = sensor.reading
 
-        data = RaceCarPredictRequestDto(
-            did_crash=STATE.crashed,
-            elapsed_ticks=STATE.ticks,
-            distance=STATE.distance,
-            velocity={"x": STATE.ego.velocity.x, "y": STATE.ego.velocity.y},
-            sensors=sensors_data,
-        )
+    data = RaceCarPredictRequestDto(
+        did_crash=STATE.crashed,
+        elapsed_ticks=STATE.ticks,
+        distance=STATE.distance,
+        velocity={"x": STATE.ego.velocity.x, "y": STATE.ego.velocity.y},
+        sensors=sensors_data,
+    )
 
-        return STATE.agent.decide(data)
+    return STATE.agent.decide(data)
 
-        # Make API call
-        # response = requests.post(
-        #     f"{STATE.api_url}/predict",
-        #     json=request_data,
-        #     timeout=1.0,  # 1 second timeout
-        # )
+    # Make API call
+    # response = requests.post(
+    #     f"{STATE.api_url}/predict",
+    #     json=request_data,
+    #     timeout=1.0,  # 1 second timeout
+    # )
 
-        # if response.status_code == 200:
-        #     result = response.json()
-        #     actions = result.get("actions", [])
-        #     if actions:
-        #         return actions  # Return the list of actions from API
-        #     else:
-        #         return ["NOTHING"]
-        # else:
-        #     print(f"API call failed with status code: {response.status_code}")
-        #     return ["NOTHING"]
-
-    except requests.exceptions.RequestException as e:
-        print(f"API call failed: {e}")
-        return ["NOTHING"]
-    except Exception as e:
-        print(f"Error in get_action: {e}")
-        return ["NOTHING"]
+    # if response.status_code == 200:
+    #     result = response.json()
+    #     actions = result.get("actions", [])
+    #     if actions:
+    #         return actions  # Return the list of actions from API
+    #     else:
+    #         return ["NOTHING"]
+    # else:
+    #     print(f"API call failed with status code: {response.status_code}")
+    #     return ["NOTHING"]
 
 
 # def switch_up():
@@ -401,7 +390,6 @@ def game_loop(
         if not actions:
             # Handle action - get_action() is a method for using arrow keys to steer - implement own logic here!
             action_list = get_action()
-
             for act in action_list:
                 actions.append(act)
         action = actions.pop()

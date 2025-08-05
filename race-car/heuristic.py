@@ -1,4 +1,5 @@
 from dtos import RaceCarPredictRequestDto
+from enum import Enum
 
 ACTIONS = ["NOTHING", "ACCELERATE", "DECELERATE", "STEER_RIGHT", "STEER_LEFT"]
 
@@ -44,8 +45,9 @@ def find_safest_side(
     def min_clearance(keys):
         vals = []
         for k in keys:
-            v = sensors.get(k, 1000)
+            v = sensors.get(k, 1000) or 1000
             vals.append(v)
+
         return min(vals)
 
     left = min_clearance(left_keys)
@@ -65,55 +67,102 @@ def find_safest_side(
     return None
 
 
+class DrivingState(Enum):
+    DRIVING = "driving"
+    BRAKING = "braking"
+    MEASURING = "measuring"
+
+
 class HeuristicAgent:
     def __init__(self):
         self.has_braked = False
-        self.prev_front_dist = None
+        self.last_measurement: dict[str, float | None] = {}
         self.current_lane = 0
         self.max_speed = 20
+        self.driving_state = DrivingState.DRIVING
 
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
-        ego_speed = state.velocity["x"]
-        print(f"Speed: {ego_speed}")
 
-        front_dist = state.sensors.get("front", 1000)
+        print("")
 
-        if front_dist < 1000 and not self.prev_front_dist and not self.has_braked:
-            print("Measuring distance to front: ", front_dist)
-            self.prev_front_dist = front_dist
-            return ["DECELERATE"]
+        front = state.sensors.get("front")
+        prev_front = self.last_measurement.get("front")
+        back = state.sensors.get("back")
+        prev_back = self.last_measurement.get("back")
 
-        if self.prev_front_dist:
-            dv = front_dist - self.prev_front_dist
-            self.prev_front_dist = None
-            self.has_braked = True
-            if dv < 0:
-                brake_amount = int(abs(dv) // 0.1)
-                print(f"Braking by: {brake_amount}")
+        self.last_measurement = {}
 
-                return ["DECELERATE"] * brake_amount
+        # print(f"Driving state: {self.driving_state}")
 
-        if self.has_braked:
-            print("Finding safest side")
-            # Check which lane is safe i.e. has maximum distance to side sensors
-            # If there is no safe lane, do nothing
-            # If there is a safe lane, switch to it
-            # If there is a safe lane, switch to it
-            safest_side = find_safest_side(state.sensors, min_gap=10)
-            print(f"Safest side: {safest_side}")
-            if safest_side == "left":
-                self.current_lane -= 1
-                self.has_braked = False
-                return switch_up()
-            elif safest_side == "right":
-                self.current_lane += 1
-                self.has_braked = False
-                return switch_down()
+        if self.driving_state == DrivingState.DRIVING:
+            if front or back:
+                self.driving_state = DrivingState.MEASURING
+                self.last_measurement = state.sensors.copy()
+                if front:
+                    return ["DECELERATE"]
+                else:
+                    return ["NOTHING"]
             else:
-                return ["NOTHING"]
+                return self._drive(state)
+        elif self.driving_state == DrivingState.MEASURING:
 
-        if ego_speed < self.max_speed:
-            print("Accelerating")
-            return ["ACCELERATE"] * 20
+            if front and prev_front:
+                dv = prev_front - front
+
+                brake_amount = int(dv // 0.1)
+                print(f"Braking by: {brake_amount}")
+                if brake_amount > 0:
+                    self.driving_state = DrivingState.BRAKING
+                    return ["DECELERATE"] * brake_amount
+                else:
+                    self.driving_state = DrivingState.DRIVING
+                    return self._drive(state)
+            elif front:
+                self.driving_state = DrivingState.MEASURING
+                self.last_measurement = state.sensors.copy()
+                return ["DECELERATE"]
+            elif back and prev_back:
+                self.driving_state = DrivingState.DRIVING
+                dv = prev_back - back
+                if dv > 0:  # Car is getting closer
+                    return self._switch_lane(state)
+                else:
+                    return self._drive(state)
+            elif back:
+                self.driving_state = DrivingState.MEASURING
+                self.last_measurement = state.sensors.copy()
+                return ["NOTHING"]
+            else:
+                self.driving_state = DrivingState.DRIVING
+                return self._drive(state)
+        elif self.driving_state == DrivingState.BRAKING:
+            self.driving_state = DrivingState.DRIVING
+            return self._switch_lane(state)
 
         return ["NOTHING"]
+
+    def _drive(self, state: RaceCarPredictRequestDto) -> list[str]:
+        ego_speed = state.velocity["x"]
+        max_actions = 20
+
+        dv = self.max_speed - ego_speed
+        accelerate_amount = int(dv // 0.1)
+        accelerate_amount = min(max_actions, accelerate_amount)
+
+        if accelerate_amount > 0:
+            print(f"Accelerating by {accelerate_amount}")
+            return ["ACCELERATE"] * accelerate_amount
+        else:
+            return ["NOTHING"] * max_actions
+
+    def _switch_lane(self, state: RaceCarPredictRequestDto) -> list[str]:
+        safest_side = find_safest_side(state.sensors, min_gap=10)
+        print(f"Safest side: {safest_side}")
+        if safest_side == "left":
+            self.current_lane -= 1
+            return switch_up()
+        elif safest_side == "right":
+            self.current_lane += 1
+            return switch_down()
+        else:
+            return ["NOTHING"]
