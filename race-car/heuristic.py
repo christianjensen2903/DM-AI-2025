@@ -67,7 +67,8 @@ def find_safest_side(
 
 class HeuristicAgent:
     def __init__(self):
-        self.is_braking = False
+        self.has_braked = False
+        self.prev_front_dist = None
         self.current_lane = 0
         self.max_speed = 10
 
@@ -75,12 +76,24 @@ class HeuristicAgent:
         ego_speed = state.velocity["x"]
         print(f"Speed: {ego_speed}")
 
-        if state.sensors.get("front") and not self.is_braking:
-            print("Braking. Distance to front: ", state.sensors.get("front"))
-            self.is_braking = True
-            return brake()
+        front_dist = state.sensors.get("front", 1000)
 
-        if self.is_braking:
+        if front_dist < 1000 and not self.prev_front_dist and not self.has_braked:
+            print("Measuring distance to front: ", front_dist)
+            self.prev_front_dist = front_dist
+            return ["DECELERATE"]
+
+        if self.prev_front_dist:
+            dv = front_dist - self.prev_front_dist
+            self.prev_front_dist = None
+            self.has_braked = True
+            if dv < 0:
+                brake_amount = int(abs(dv) // 0.1)
+                print(f"Braking by: {brake_amount}")
+
+                return ["DECELERATE"] * brake_amount
+
+        if self.has_braked:
             print("Finding safest side")
             # Check which lane is safe i.e. has maximum distance to side sensors
             # If there is no safe lane, do nothing
@@ -90,11 +103,11 @@ class HeuristicAgent:
             print(f"Safest side: {safest_side}")
             if safest_side == "left":
                 self.current_lane -= 1
-                self.is_braking = False
+                self.has_braked = False
                 return switch_up()
             elif safest_side == "right":
                 self.current_lane += 1
-                self.is_braking = False
+                self.has_braked = False
                 return switch_down()
             else:
                 return ["NOTHING"]
