@@ -70,7 +70,7 @@ class HeuristicAgent:
         self.has_braked = False
         self.prev_front_dist = None
         self.current_lane = 0
-        self.max_speed = 10
+        self.max_speed = 20
 
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
         ego_speed = state.velocity["x"]

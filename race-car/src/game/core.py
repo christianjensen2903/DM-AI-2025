@@ -9,6 +9,8 @@ from ..elements.road import Road
 from ..elements.sensor import Sensor
 from ..mathematics.vector import Vector
 import json
+from heuristic import HeuristicAgent
+from dtos import RaceCarPredictRequestDto
 
 # Define constants
 SURFACE_WIDTH = 1600
@@ -37,6 +39,7 @@ class GameState:
         self.distance = 0
         self.latest_action = "NOTHING"
         self.ticks = 0
+        self.agent: HeuristicAgent | None = None
 
 
 STATE = None
@@ -136,32 +139,33 @@ def get_action():
             else:
                 sensors_data[sensor.name] = 1000.0  # Max distance if no reading
 
-        # Prepare request data
-        request_data = {
-            "did_crash": STATE.crashed,
-            "elapsed_ticks": STATE.ticks,
-            "distance": STATE.distance,
-            "velocity": {"x": STATE.ego.velocity.x, "y": STATE.ego.velocity.y},
-            "sensors": sensors_data,
-        }
-
-        # Make API call
-        response = requests.post(
-            f"{STATE.api_url}/predict",
-            json=request_data,
-            timeout=1.0,  # 1 second timeout
+        data = RaceCarPredictRequestDto(
+            did_crash=STATE.crashed,
+            elapsed_ticks=STATE.ticks,
+            distance=STATE.distance,
+            velocity={"x": STATE.ego.velocity.x, "y": STATE.ego.velocity.y},
+            sensors=sensors_data,
         )
 
-        if response.status_code == 200:
-            result = response.json()
-            actions = result.get("actions", [])
-            if actions:
-                return actions  # Return the list of actions from API
-            else:
-                return ["NOTHING"]
-        else:
-            print(f"API call failed with status code: {response.status_code}")
-            return ["NOTHING"]
+        return STATE.agent.decide(data)
+
+        # Make API call
+        # response = requests.post(
+        #     f"{STATE.api_url}/predict",
+        #     json=request_data,
+        #     timeout=1.0,  # 1 second timeout
+        # )
+
+        # if response.status_code == 200:
+        #     result = response.json()
+        #     actions = result.get("actions", [])
+        #     if actions:
+        #         return actions  # Return the list of actions from API
+        #     else:
+        #         return ["NOTHING"]
+        # else:
+        #     print(f"API call failed with status code: {response.status_code}")
+        #     return ["NOTHING"]
 
     except requests.exceptions.RequestException as e:
         print(f"API call failed: {e}")
@@ -346,6 +350,8 @@ def initialize_game_state(api_url: str, seed_value: str, sensor_removal=0):
 
     STATE.cars = [STATE.ego]
 
+    STATE.agent = HeuristicAgent()
+
 
 def update_game(current_action: str):
     handle_action(current_action)
@@ -411,8 +417,8 @@ def game_loop(
         remove_passed_cars()
         place_car()
 
-        print("Current action:", action)
-        print("Currnet tick:", STATE.ticks)
+        # print("Current action:", action)
+        # print("Currnet tick:", STATE.ticks)
 
         # Update sensors
         for sensor in STATE.sensors:
