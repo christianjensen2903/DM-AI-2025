@@ -37,13 +37,13 @@ HOST = "0.0.0.0"
 PORT = 9052
 
 # Setup ngrok tunnel
-# ngrok_tunnel = ngrok.connect(PORT)
-# print()
-# print()
-# print(ngrok_tunnel.public_url)
-# print()
-# print()
+ngrok_tunnel = ngrok.connect(PORT)
+print()
+print()
+print(ngrok_tunnel.public_url)
+print()
+print()
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     uvicorn.run("api:app", host=HOST, port=PORT)
+    uvicorn.run("api:app", host=HOST, port=PORT)

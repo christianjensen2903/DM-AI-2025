@@ -1,6 +1,16 @@
 from dtos import RaceCarPredictRequestDto
 from enum import Enum
 import math
+import logging
+
+# Configure logging - can be disabled by setting level to logging.CRITICAL or higher
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# To disable logging, uncomment the line below:
+# logger.setLevel(logging.CRITICAL)
 
 ACTIONS = ["NOTHING", "ACCELERATE", "DECELERATE", "STEER_RIGHT", "STEER_LEFT"]
 
@@ -53,7 +63,7 @@ def find_safest_side(
 
     left = min_clearance(left_keys)
     right = min_clearance(right_keys)
-    print(f"Left: {left}, Right: {right}")
+    logger.info(f"Left: {left}, Right: {right}")
 
     # Neither side has enough clearance
     if left < min_gap and right < min_gap:
@@ -91,7 +101,7 @@ class HeuristicAgent:
 
         self.last_measurement = {}
 
-        # print(f"Driving state: {self.driving_state}")
+        logger.debug(f"Driving state: {self.driving_state}")
 
         if self.driving_state == DrivingState.DRIVING:
             if front or back:
@@ -109,7 +119,7 @@ class HeuristicAgent:
                 dv = prev_front - front
 
                 brake_amount = int(dv // 0.1)
-                print(f"Braking by: {brake_amount}")
+                logger.info(f"Braking by: {brake_amount}")
                 if brake_amount > 0:
                     self.driving_state = DrivingState.BRAKING
                     return ["DECELERATE"] * brake_amount
@@ -149,13 +159,13 @@ class HeuristicAgent:
         dv = self.max_speed - ego_speed
         needed_steps = int(dv // 0.1)
 
-        # 0) If you’re so close you need <1 tick, just stop accelerating.
+        # 0) If you're so close you need <1 tick, just stop accelerating.
         if dv <= 0.1:
             return ["NOTHING"] * max_actions
 
         # 1) Full throttle up to threshold
         if ego_speed < threshold_speed:
-            print(f"Accelerating by: {max_actions}")
+            logger.info(f"Accelerating by: {max_actions}")
             return ["ACCELERATE"] * max_actions
 
         # 2) Beyond threshold: compute linear taper fraction
@@ -169,12 +179,12 @@ class HeuristicAgent:
         # 4) Floor to at least min_actions
         accelerate_amount = max(taper_steps, min_actions)
 
-        print(f"Accelerating by: {accelerate_amount}")
+        logger.info(f"Accelerating by: {accelerate_amount}")
         return ["ACCELERATE"] * accelerate_amount
 
     def _switch_lane(self, state: RaceCarPredictRequestDto) -> list[str]:
         safest_side = find_safest_side(state.sensors, min_gap=10)
-        print(f"Safest side: {safest_side}")
+        logger.info(f"Safest side: {safest_side}")
         if safest_side == "left":
             self.current_lane -= 1
             return switch_up()
