@@ -110,13 +110,18 @@ def process_data(images, masks, control, transform):
 
 
 def image_transform(image):
-    """Transform numpy image to desired size and normalize"""
+    """Transform numpy image - just return original for now, padding will happen after augmentations"""
+    return image
+
+
+def pad_image_to_size(image, target_height, target_width):
+    """Pad image to target size"""
     height, width = image.shape
 
     # Calculate padding needed
-    bottom_pad = max(0, DESIRED_HEIGHT - height)
-    left_pad = max(0, int(np.floor((DESIRED_WIDTH - width) / 2)))
-    right_pad = max(0, int(np.ceil((DESIRED_WIDTH - width) / 2)))
+    bottom_pad = max(0, target_height - height)
+    left_pad = max(0, int(np.floor((target_width - width) / 2)))
+    right_pad = max(0, int(np.ceil((target_width - width) / 2)))
 
     # Apply padding
     image = np.pad(
@@ -127,7 +132,7 @@ def image_transform(image):
     )
 
     # Crop if image is larger than desired size
-    image = image[:DESIRED_HEIGHT, :DESIRED_WIDTH]
+    image = image[:target_height, :target_width]
 
     return image
 
@@ -183,6 +188,10 @@ class CustomDataset(Dataset):
             augmented = self.augmentation(image=image, mask=mask)
             image = augmented["image"]
             mask = augmented["mask"]
+
+        # Apply padding AFTER augmentations to ensure consistent padding
+        image = pad_image_to_size(image, DESIRED_HEIGHT, DESIRED_WIDTH)
+        mask = pad_image_to_size(mask, DESIRED_HEIGHT, DESIRED_WIDTH)
 
         # Normalize to 0-1 range
         image = image.astype(np.float32) / 255.0
@@ -392,28 +401,37 @@ def get_train_augs() -> A.Compose:
     return A.Compose(
         [
             A.ShiftScaleRotate(
-                shift_limit=0.05,
-                scale_limit=0.10,
+                shift_limit=0.15,
+                scale_limit=0.15,
+                shift_limit_y=0,
                 rotate_limit=5,
                 border_mode=cv2.BORDER_CONSTANT,
                 interpolation=cv2.INTER_NEAREST,
-                p=0.75,
-                fill=1,
+                p=0.25,
+                fill=255,  # was 1 in [0–1], now 255 in [0–255]
             ),
+            # Flipping horizontally and vertically
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
             A.ElasticTransform(
-                alpha=5,
-                sigma=50,
+                alpha=10,
+                sigma=100,
                 interpolation=cv2.INTER_NEAREST,
                 border_mode=cv2.BORDER_CONSTANT,
                 approximate=True,
-                p=0.20,
-                fill=1,
+                p=0.2,
+                fill=255,  # updated for [0–255]
             ),
-            # ── Intensity ───────────────────────────────────────────────
+            # Gaussian blur
+            A.GaussianBlur(blur_limit=(3, 7), p=0.25),
+            A.GaussNoise(std_range=(0.05, 0.15), p=0.25),
             A.RandomGamma(gamma_limit=(95, 105), p=0.25),
             A.RandomBrightnessContrast(
-                brightness_limit=0.05, contrast_limit=0.10, p=0.5
+                brightness_limit=0.1,
+                contrast_limit=0.05,
+                p=0.5,
             ),
+            # Removed A.Normalize() - normalization will happen after padding in CustomDataset
         ]
     )
 
@@ -606,7 +624,7 @@ if __name__ == "__main__":
 
     # To disable wandb, set enable_wandb=False
     # This will use TensorBoard logging instead
-    run_experiment(config, experiment_name="baseline_experiment", enable_wandb=True)
+    run_experiment(config, experiment_name="baseline_experiment", enable_wandb=False)
 
     # Example of running without wandb:
     # run_experiment(config, experiment_name="baseline_experiment_no_wandb", enable_wandb=False)

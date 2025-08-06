@@ -3,6 +3,7 @@ emergency-healthcare-rag/data/test
 emergency-healthcare-rag/data/validation
 emergency-healthcare-rag/checkpoints
 emergency-healthcare-rag/models
+tumor-segmentation/saved_images
 
 # Emily-specific files
 .idea
