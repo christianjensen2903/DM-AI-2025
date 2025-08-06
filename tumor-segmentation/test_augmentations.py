@@ -103,6 +103,7 @@ def get_train_augs() -> A.Compose:
                 contrast_limit=0.05,
                 p=1,
             ),
+            # A.Normalize(),
             # Removed A.Normalize() - normalization will happen after padding in CustomDataset
         ]
     )

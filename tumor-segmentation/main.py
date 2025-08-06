@@ -128,7 +128,7 @@ def pad_image_to_size(image, target_height, target_width):
         image,
         ((0, bottom_pad), (left_pad, right_pad)),
         mode="constant",
-        constant_values=0,
+        constant_values=255,
     )
 
     # Crop if image is larger than desired size
