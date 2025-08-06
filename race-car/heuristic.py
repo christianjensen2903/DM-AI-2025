@@ -1,5 +1,6 @@
 from dtos import RaceCarPredictRequestDto
 from enum import Enum
+import math
 
 ACTIONS = ["NOTHING", "ACCELERATE", "DECELERATE", "STEER_RIGHT", "STEER_LEFT"]
 
@@ -83,8 +84,6 @@ class HeuristicAgent:
 
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
 
-        print("")
-
         front = state.sensors.get("front")
         prev_front = self.last_measurement.get("front")
         back = state.sensors.get("back")
@@ -144,16 +143,34 @@ class HeuristicAgent:
     def _drive(self, state: RaceCarPredictRequestDto) -> list[str]:
         ego_speed = state.velocity["x"]
         max_actions = 20
+        min_actions = 10
+        threshold_speed = self.max_speed / 2  # 10 m/s if max_speed is 20
 
         dv = self.max_speed - ego_speed
-        accelerate_amount = int(dv // 0.1)
-        accelerate_amount = min(max_actions, accelerate_amount)
+        needed_steps = int(dv // 0.1)
 
-        if accelerate_amount > 0:
-            print(f"Accelerating by {accelerate_amount}")
-            return ["ACCELERATE"] * accelerate_amount
-        else:
+        # 0) If you’re so close you need <1 tick, just stop accelerating.
+        if dv <= 0.1:
             return ["NOTHING"] * max_actions
+
+        # 1) Full throttle up to threshold
+        if ego_speed < threshold_speed:
+            print(f"Accelerating by: {max_actions}")
+            return ["ACCELERATE"] * max_actions
+
+        # 2) Beyond threshold: compute linear taper fraction
+        dv_range = self.max_speed - threshold_speed
+        proportion = dv / dv_range  # goes 1→0 as speed goes 10→20
+
+        # 3) Ceil so any fraction gives ≥1, then cap by needed_steps
+        raw = max_actions * proportion
+        taper_steps = min(needed_steps, math.ceil(raw))
+
+        # 4) Floor to at least min_actions
+        accelerate_amount = max(taper_steps, min_actions)
+
+        print(f"Accelerating by: {accelerate_amount}")
+        return ["ACCELERATE"] * accelerate_amount
 
     def _switch_lane(self, state: RaceCarPredictRequestDto) -> list[str]:
         safest_side = find_safest_side(state.sensors, min_gap=10)
