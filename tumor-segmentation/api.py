@@ -6,7 +6,13 @@ import numpy as np
 from utils import validate_segmentation, encode_request, decode_request
 from pydantic import BaseModel
 import torch
-from main import TumorModel, reverse_image_transform, image_transform
+from main import (
+    TumorModel,
+    reverse_image_transform,
+    pad_image_to_size,
+    DESIRED_WIDTH,
+    DESIRED_HEIGHT,
+)
 import time
 
 
@@ -23,7 +29,7 @@ class PredictResponseDto(BaseModel):
 # 3 = 0.720
 
 app = FastAPI()
-ckpt_path = "final_model_default-3.ckpt"
+ckpt_path = "1.ckpt"
 model = TumorModel.load_from_checkpoint(ckpt_path)
 model.eval()
 
@@ -36,7 +42,7 @@ def predict_endpoint(request: PredictRequestDto):
     original_height = original_img.shape[0]
 
     img = original_img[:, :, 0]
-    img = image_transform(img)
+    img = pad_image_to_size(img, DESIRED_HEIGHT, DESIRED_WIDTH)
     img = torch.tensor(img, dtype=torch.float32) / 255
     img = img.unsqueeze(0).unsqueeze(0)
     logits_mask = model.forward(img)
