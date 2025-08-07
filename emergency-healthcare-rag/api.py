@@ -93,7 +93,12 @@ def query_llm(prompt: str) -> str:
         "qwen3:32b",
         messages=[{"role": "user", "content": prompt}],
         think=False,
-        options={"temperature": 0},
+        options={
+            "temperature": 0,
+            "num_predict": 40,  # tiny budget; JSON only
+            "stop": ["\n", "}"],  # model stops right after closing brace
+            "format": "json",  # force JSON formatting
+        },
     )
     content = response.message.content
     if not content:
