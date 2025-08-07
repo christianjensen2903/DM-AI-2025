@@ -10,7 +10,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # To disable logging, uncomment the line below:
-# logger.setLevel(logging.CRITICAL)
+logger.setLevel(logging.CRITICAL)
 
 SENSOR_ANGLES = {
     0.0: "left_side",
@@ -96,7 +96,7 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         "right_front",
     ]
 
-    def check_side_safety(side_name, side_keys):
+    def check_side_safety(side_keys):
         # Check all sensors for this side using individual thresholds
         all_sensors = side_keys
         sensor_status = {}
@@ -114,24 +114,11 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         min_side = (
             min(sensor_status[k][0] for k in side_keys) if side_keys else float("inf")
         )
-        # Log detailed sensor information
-        unsafe_sensors = [
-            k for k, (v, threshold, safe) in sensor_status.items() if not safe
-        ]
-        if unsafe_sensors:
-            logger.info(
-                f"{side_name} side: UNSAFE - sensors below threshold: {unsafe_sensors}"
-            )
-            for sensor in unsafe_sensors:
-                v, threshold, _ = sensor_status[sensor]
-                logger.info(f"  {sensor}: {v:.1f} < {threshold:.1f}")
-        else:
-            logger.info(f"{side_name} side: SAFE - all sensors above thresholds")
 
         return all_safe, min_side
 
-    left_safe, left_min = check_side_safety("Left", left_side_keys)
-    right_safe, right_min = check_side_safety("Right", right_side_keys)
+    left_safe, left_min = check_side_safety(left_side_keys)
+    right_safe, right_min = check_side_safety(right_side_keys)
 
     # Neither side is safe
     if not left_safe and not right_safe:
@@ -164,19 +151,19 @@ class DrivingState(Enum):
     DRIVING = "driving"
     BRAKING = "braking"
     MEASURING = "measuring"
+    LANE_CHANGING = "lane_changing"
 
 
 class HeuristicAgent:
     def __init__(self):
         self.has_braked = False
         self.last_measurement: dict[str, float | None] = {}
-        self.current_lane = 0
         self.max_speed = 32.5
         self.driving_state = DrivingState.DRIVING
-        self.speed_matching_threshold = (
-            0.8  # Match speed if other car is 80% of max speed
-        )
+        self.speed_match_threshold = 30
         self.speed_matching_distance = 100
+        # Lane change state tracking
+        self.lane_change_target = None  # "left" or "right"
 
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
 
@@ -186,8 +173,6 @@ class HeuristicAgent:
         prev_back = self.last_measurement.get("back")
 
         self.last_measurement = {}
-
-        logger.debug(f"Driving state: {self.driving_state}")
 
         if self.driving_state == DrivingState.DRIVING:
             if front or back:
@@ -216,14 +201,14 @@ class HeuristicAgent:
                     )
 
                 dv = prev_front - front
-                brake_amount = int(dv // 0.1)
-                logger.info(f"Braking by: {brake_amount}")
+                brake_amount = int(dv // 0.1) + 1
                 if brake_amount > 0:
                     self.driving_state = DrivingState.BRAKING
+                    logger.info(f"Braking by: {brake_amount}")
                     return ["DECELERATE"] * brake_amount
                 else:
-                    self.driving_state = DrivingState.DRIVING
-                    return self._drive(state)
+                    self.driving_state = DrivingState.LANE_CHANGING
+                    return self._start_lane_change(state)
             elif front:
                 self.driving_state = DrivingState.MEASURING
                 self.last_measurement = state.sensors.copy()
@@ -245,7 +230,7 @@ class HeuristicAgent:
                 self.driving_state = DrivingState.DRIVING
                 dv = prev_back - back
                 if dv > 0:  # Car is getting closer
-                    return self._switch_lane(state)
+                    return self._start_lane_change(state)
                 else:
                     return self._drive(state)
             elif back:
@@ -256,8 +241,10 @@ class HeuristicAgent:
                 self.driving_state = DrivingState.DRIVING
                 return self._drive(state)
         elif self.driving_state == DrivingState.BRAKING:
-            self.driving_state = DrivingState.DRIVING
-            return self._switch_lane(state)
+            self.driving_state = DrivingState.LANE_CHANGING
+            return self._start_lane_change(state)
+        elif self.driving_state == DrivingState.LANE_CHANGING:
+            return self._continue_lane_change(state)
 
         return ["NOTHING"]
 
@@ -300,8 +287,7 @@ class HeuristicAgent:
             return False
 
         # Check if the other car's speed is significant (above threshold percentage of max speed)
-        speed_threshold = self.max_speed * self.speed_matching_threshold
-        return estimated_speed >= speed_threshold
+        return estimated_speed >= self.speed_match_threshold
 
     def _calculate_speed_matching_actions(
         self, ego_speed: float, target_speed: float, max_actions: int = 20
@@ -394,10 +380,107 @@ class HeuristicAgent:
         safest_side = find_safest_side(state.sensors)
         logger.info(f"Safest side: {safest_side}")
         if safest_side == "left":
-            self.current_lane -= 1
             return switch_up()
         elif safest_side == "right":
-            self.current_lane += 1
             return switch_down()
         else:
             return ["NOTHING"] * 50
+
+    def _start_lane_change(self, state: RaceCarPredictRequestDto) -> list[str]:
+        """
+        Start a two-step lane change process.
+        First step: move partially into the target lane.
+        """
+
+        safest_side = find_safest_side(state.sensors)
+
+        if safest_side is None:
+            logger.info("No safe side found. Staying in the current lane.")
+            self.driving_state = DrivingState.DRIVING
+            return ["NOTHING"] * 50
+
+        logger.info(f"Starting lane change to: {safest_side}")
+
+        self.lane_change_target = safest_side
+
+        # Move partially into the target lane (about 1/3 of the way)
+        if safest_side == "left":
+            actions = ["STEER_RIGHT"] * 16 + ["STEER_LEFT"] * 16  # Partial move up
+        else:  # right
+            actions = ["STEER_LEFT"] * 16 + ["STEER_RIGHT"] * 16  # Partial move down
+
+        self.lane_change_actions_remaining = len(actions)
+        self.driving_state = DrivingState.LANE_CHANGING
+
+        return actions
+
+    def _continue_lane_change(self, state: RaceCarPredictRequestDto) -> list[str]:
+        """
+        Continue the lane change process.
+        Step 1: Check if the partial move is still safe
+        Step 2: Either complete the lane change or abort
+        """
+
+        # Check if the target side is still safe
+        if self._is_target_side_safe(state, self.lane_change_target):
+            if self.lane_change_target == "left":
+                actions = ["STEER_RIGHT"] * 44 + [
+                    "STEER_LEFT"
+                ] * 44  # Complete the move up
+            else:  # right
+                actions = ["STEER_LEFT"] * 44 + [
+                    "STEER_RIGHT"
+                ] * 44  # Complete the move down
+
+            self.lane_change_actions_remaining = len(actions)
+            logger.info(f"Completing lane change to {self.lane_change_target}")
+            self.driving_state = DrivingState.DRIVING
+            return actions
+        else:
+            # Abort the lane change
+            logger.info(
+                f"Lane change to {self.lane_change_target} no longer safe, aborting"
+            )
+            self.driving_state = DrivingState.DRIVING
+            if self.lane_change_target == "left":
+                return ["STEER_LEFT"] * 16 + ["STEER_RIGHT"] * 16
+            else:
+                return ["STEER_RIGHT"] * 16 + ["STEER_LEFT"] * 16
+
+    def _is_target_side_safe(
+        self, state: RaceCarPredictRequestDto, target_side: str
+    ) -> bool:
+        """
+        Check if the target side is still safe for completing the lane change.
+        """
+        if target_side == "left":
+            side_keys = [
+                "left_side",
+                "left_side_back",
+                "left_side_front",
+                "back_left_back",
+                "left_back",
+                "left_front",
+            ]
+        else:  # right
+            side_keys = [
+                "right_side",
+                "right_side_back",
+                "right_side_front",
+                "back_right_back",
+                "right_back",
+                "right_front",
+            ]
+
+        # Check all sensors for this side using individual thresholds
+        for key in side_keys:
+            value = state.sensors.get(key, 1000) or 1000
+            threshold = lane_change_thresholds.get(key, float("inf"))
+            if value < threshold:
+                logger.info(
+                    f"Target side {target_side} unsafe: {key} = {value:.1f} < {threshold:.1f}"
+                )
+                return False
+
+        logger.info(f"Target side {target_side} is still safe")
+        return True
