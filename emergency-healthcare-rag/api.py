@@ -107,7 +107,6 @@ def query_llm(prompt: str) -> str:
         options={
             "temperature": 0,
             "num_predict": 40,  # tiny budget; JSON only
-            "format": "json",  # force JSON formatting
         },
     )
     content = response.message.content
