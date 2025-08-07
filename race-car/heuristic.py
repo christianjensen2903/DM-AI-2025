@@ -68,7 +68,8 @@ def safe_lane_change_distances(
     return out
 
 
-lane_change_thresholds = safe_lane_change_distances(224)
+lane_change_thresholds = safe_lane_change_distances(224, 1.45)
+partial_lane_change_thresholds = safe_lane_change_distances(224, 1.15)
 
 
 def find_safest_side(sensors: dict[str, float | None]) -> str | None:
@@ -201,7 +202,9 @@ class HeuristicAgent:
                     )
 
                 dv = prev_front - front
-                brake_amount = int(dv // 0.1) + 1
+                brake_amount = (
+                    int(dv // 0.1) + 3
+                )  # Car vary in speed. Be on the safe side
                 if brake_amount > 0:
                     self.driving_state = DrivingState.BRAKING
                     logger.info(f"Braking by: {brake_amount}")
@@ -424,13 +427,13 @@ class HeuristicAgent:
         # Check if the target side is still safe
         if self._is_target_side_safe(state, self.lane_change_target):
             if self.lane_change_target == "left":
-                actions = ["STEER_RIGHT"] * 44 + [
+                actions = ["STEER_RIGHT"] * 45 + [
                     "STEER_LEFT"
-                ] * 44  # Complete the move up
+                ] * 45  # Complete the move up
             else:  # right
-                actions = ["STEER_LEFT"] * 44 + [
+                actions = ["STEER_LEFT"] * 45 + [
                     "STEER_RIGHT"
-                ] * 44  # Complete the move down
+                ] * 45  # Complete the move down
 
             self.lane_change_actions_remaining = len(actions)
             logger.info(f"Completing lane change to {self.lane_change_target}")
@@ -475,7 +478,7 @@ class HeuristicAgent:
         # Check all sensors for this side using individual thresholds
         for key in side_keys:
             value = state.sensors.get(key, 1000) or 1000
-            threshold = lane_change_thresholds.get(key, float("inf"))
+            threshold = partial_lane_change_thresholds.get(key, float("inf"))
             if value < threshold:
                 logger.info(
                     f"Target side {target_side} unsafe: {key} = {value:.1f} < {threshold:.1f}"
