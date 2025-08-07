@@ -118,7 +118,7 @@ class TrainingDataEvaluator:
         top_snippets = []
         for doc in retrieved[:10]:
             snippet_info = {
-                "content": doc.page_content,
+                "content": doc.metadata.get("original_content", doc.page_content),
                 "topic_name": doc.metadata.get("topic_name", "Unknown"),
                 "topic_id": doc.metadata.get("topic_id", -1),
                 "score": (
