@@ -11,7 +11,6 @@ from text_normalizer import normalize_medical_text
 import dotenv
 from typing import List, Dict
 from ollama import chat
-import json
 
 dotenv.load_dotenv()
 
@@ -64,7 +63,7 @@ def index():
 def format_prompt(statement: str, snippets: List[Dict]) -> str:
 
     prompt = """
-You are a helpful medical assistant. Your task is to determine whether the following medical statement is supported by the evidence provided and predict the most relevant medical topic.
+You are a helpful medical assistant. Your task is to determine whether the following medical statement is supported by the evidence provided or not.
 
 Statement:
 {statement}
@@ -72,14 +71,11 @@ Statement:
 Retrieved Snippets:
 {snippets}
 
-Based only on the above snippets, please provide your response in the following format and no other text:
-{{"statement_is_true": true/false, "statement_topic": <topic_id>}}
-
-Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
+Based only on the above snippets, please answer either True or False and nothing else.
+Only say true if it directly says it in one of the snippets.
 """
     snippets_text = "\n\n".join(
-        f"Snippet {i+1} (Topic: {s['topic_name']}, Topic ID: {s['topic_id']}):\n{s['content']}"
-        for i, s in enumerate(snippets)
+        f"Snippet {i+1}:\n{s['content']}" for i, s in enumerate(snippets)
     )
     return prompt.format(
         statement=statement.strip(),
@@ -97,34 +93,16 @@ def query_llm(prompt: str) -> str:
     content = response.message.content
     if not content:
         print(f"No response from LLM: {response}")
-        return "{{'statement_is_true': False, 'statement_topic': -1}}"
+        return "False"
 
     return content.strip()
 
 
-def parse_llm_response(llm_response: str) -> tuple[bool, int]:
+def parse_llm_response(llm_response: str) -> bool:
     """Parse LLM response to extract truth value and predicted topic"""
     # Clean the response - remove markdown code blocks if present
     cleaned_response = llm_response.strip()
-
-    # Remove markdown code block markers if present
-    if cleaned_response.startswith("```json"):
-        cleaned_response = cleaned_response[7:]  # Remove "```json"
-    if cleaned_response.startswith("```"):
-        cleaned_response = cleaned_response[3:]  # Remove "```"
-    if cleaned_response.endswith("```"):
-        cleaned_response = cleaned_response[:-3]  # Remove trailing "```"
-
-    cleaned_response = cleaned_response.strip()
-
-    try:
-        response = json.loads(cleaned_response)
-        return response["statement_is_true"], response["statement_topic"]
-    except Exception as e:
-        print(f"Error parsing LLM response: {e}")
-        print(f"Original LLM response: {llm_response}")
-        print(f"Cleaned response: {cleaned_response}")
-        return False, -1
+    return cleaned_response.lower() == "true"
 
 
 @app.post("/predict", response_model=MedicalStatementResponseDto)
@@ -152,7 +130,10 @@ def predict_llm_endpoint(request: LLMPredictionRequestDto):
     llm_response = query_llm(prompt)
 
     # Parse LLM response
-    statement_is_true, predicted_topic_id = parse_llm_response(llm_response)
+    statement_is_true = parse_llm_response(llm_response)
+
+    # Get predicted topic (topic of the first snippet)
+    predicted_topic_id = top_snippets[0]["topic_id"]
 
     response = MedicalStatementResponseDto(
         statement_is_true=statement_is_true,
