@@ -133,11 +133,8 @@ class TrainingDataEvaluator:
         prompt = format_prompt(statement, top_snippets)
         llm_response = query_llm(prompt)
 
-        # Parse LLM response (only returns boolean truth value)
-        predicted_label = parse_llm_response(llm_response)
-
-        # Get predicted topic (topic of the first snippet) - same as API
-        predicted_topic = top_snippets[0]["topic_id"] if top_snippets else -1
+        # Parse LLM response
+        predicted_label, predicted_topic = parse_llm_response(llm_response)
 
         processing_time = time.time() - start_time
 
@@ -149,7 +146,7 @@ class TrainingDataEvaluator:
             processing_time,
         )
 
-    def evaluate_all(self, max_samples: int | None = None) -> List[EvaluationResult]:
+    def evaluate_all(self, max_samples: int = None) -> List[EvaluationResult]:
         """Evaluate all training data"""
         print("Loading training data...")
         training_data = self.load_training_data()
@@ -278,7 +275,7 @@ class TrainingDataEvaluator:
         correct_both = sum(r.is_correct_both for r in results)
 
         # Error breakdown
-        error_counts: Dict[str, int] = {}
+        error_counts = {}
         for result in results:
             if result.error_type:
                 error_counts[result.error_type] = (
@@ -317,7 +314,7 @@ class TrainingDataEvaluator:
         """Save detailed error analysis"""
         errors = [r for r in results if not r.is_correct_both]
 
-        error_analysis: Dict[str, Any] = {
+        error_analysis = {
             "error_count": len(errors),
             "total_count": len(results),
             "error_rate": len(errors) / len(results) if results else 0,
