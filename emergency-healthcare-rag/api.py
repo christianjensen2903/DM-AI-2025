@@ -74,11 +74,12 @@ determine:
 
 Rules:
 - Consider ONLY the provided snippets.
-- Only true if at least one snippet contains the exact claim (including numbers, thresholds, sides/signs like > vs <).
-- If any snippet explicitly contradicts the statement, mark false.
-- If snippets are mixed/ambiguous or only partially overlap, mark false.
+- "True" only if a snippet literally contains the claim (numbers/units/signs must match).
+- If any snippet explicitly contradicts the claim, it's false.
+- Mixed/ambiguous/partial overlap -> false.
 - When multiple snippets discuss the same content under different topics, choose the topic_id of the snippet that most precisely matches the statement.
 - Be conservative: prefer False if the match is not literal.
+- topic_id MUST be an integer. NEVER return null or a string.
 
 Output JSON ONLY (no prose), exactly this schema:
 {{"is_true": true/false, "topic_id": <topic_id>}}
