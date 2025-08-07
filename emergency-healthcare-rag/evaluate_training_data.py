@@ -116,7 +116,7 @@ class TrainingDataEvaluator:
 
         # Get top 10 snippets with topic information
         top_snippets = []
-        for doc in retrieved[:10]:
+        for doc in retrieved[:5]:
             snippet_info = {
                 "content": doc.metadata.get("original_content", doc.page_content),
                 "topic_name": doc.metadata.get("topic_name", "Unknown"),
@@ -130,7 +130,7 @@ class TrainingDataEvaluator:
             top_snippets.append(snippet_info)
 
         # Format prompt and query LLM
-        prompt = format_prompt(statement, top_snippets)
+        prompt = format_prompt(statement, top_snippets[:3])
         llm_response = query_llm(prompt)
 
         # Parse LLM response
