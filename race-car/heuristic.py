@@ -71,9 +71,7 @@ def safe_lane_change_distances(
 lane_change_thresholds = safe_lane_change_distances(224)
 
 
-def find_safest_side(
-    sensors: dict[str, float | None], min_gap: float = 1.0, hysteresis: float = 0.1
-) -> str | None:
+def find_safest_side(sensors: dict[str, float | None]) -> str | None:
     """
     Returns "left" or "right" if that side has clearly more clearance,
     otherwise None.
@@ -150,21 +148,16 @@ def find_safest_side(
 
     # Both sides are safe - prefer the one with more clearance
     # Use the minimum of side and angled sensors for comparison
-    if left_min > right_min * (1 + hysteresis):
+    if left_min > right_min:
         logger.info(
             f"Both sides safe, preferring left (left: {left_min:.1f}, right: {right_min:.1f})"
         )
         return "left"
-    elif right_min > left_min * (1 + hysteresis):
+    else:
         logger.info(
             f"Both sides safe, preferring right (left: {left_min:.1f}, right: {right_min:.1f})"
         )
         return "right"
-    else:
-        logger.info(
-            f"Both sides safe but too close to call (left: {left_min:.1f}, right: {right_min:.1f})"
-        )
-        return None
 
 
 class DrivingState(Enum):
