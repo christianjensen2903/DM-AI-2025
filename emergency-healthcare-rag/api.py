@@ -64,19 +64,30 @@ def index():
 def format_prompt(statement: str, snippets: List[Dict]) -> str:
 
     prompt = """
-You are a helpful medical assistant. Your task is to determine whether the following medical statement is supported by the evidence provided and predict the most relevant medical topic.
+You are a strict medical verifier.
+
+Task:
+Given ONE statement and up to N retrieved SNIPPETS (each has: index, topic_name, topic_id, content),
+determine:
+  1) Is the statement directly supported by at least ONE snippet, using EXACT match of facts, numbers, ranges, units, and direction/sign? (No outside knowledge. No inference.)
+  2) Which ONE topic_id from the shown snippets best matches the statement’s subject, prioritizing the snippet(s) you used for support/contradiction.
+
+Rules:
+- Consider ONLY the provided snippets.
+- Only true if at least one snippet contains the exact claim (including numbers, thresholds, sides/signs like > vs <).
+- If any snippet explicitly contradicts the statement, mark false.
+- If snippets are mixed/ambiguous or only partially overlap, mark false.
+- When multiple snippets discuss the same content under different topics, choose the topic_id of the snippet that most precisely matches the statement.
+- Be conservative: prefer False if the match is not literal.
+
+Output JSON ONLY (no prose), exactly this schema:
+{{"is_true": true/false, "topic_id": <topic_id>}}
 
 Statement:
 {statement}
 
 Retrieved Snippets:
 {snippets}
-
-Based only on the above snippets, please provide your response in the following format and no other text:
-{{"is_true": true/false, "topic_id": <topic_id>}}
-
-Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
-To be true the exact information has to be present in one of the snippets.
 """
     snippets_text = "\n\n".join(
         f"Snippet {i+1} (Topic: {s['topic_name']}, Topic ID: {s['topic_id']}):\n{s['content']}"
