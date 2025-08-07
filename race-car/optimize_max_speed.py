@@ -85,6 +85,11 @@ def run_single_test(max_speed: float, seed: int) -> TestResult:
             avg_speed=avg_speed,
         )
 
+        if game_core.STATE.distance < 10000:
+            print(
+                f"Seed {seed} achieved distance {game_core.STATE.distance:.1f} (under 10000)"
+            )
+
         return result
 
     except Exception as e:
@@ -265,12 +270,12 @@ def main():
     # Run optimization
     results_list = optimize_max_speed(
         speed_range=(
-            10,
+            27.5,
             40,
         ),  # Test speeds from 30 to 42.5 (focused range around current 35)
         speed_step=2.5,  # Test every 2.5 units
-        num_seeds=15,  # 15 seeds per speed for good statistics
-        seed_start=1,
+        num_seeds=20,  # 15 seeds per speed for good statistics
+        seed_start=20,
     )
 
     # Save summary results

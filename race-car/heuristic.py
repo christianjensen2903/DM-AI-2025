@@ -290,7 +290,7 @@ class HeuristicAgent:
             return False
 
         # Check if the other car's speed is significant (above threshold percentage of max speed)
-        return estimated_speed >= self.speed_match_threshold
+        return estimated_speed >= self.max_speed * 0.9
 
     def _calculate_speed_matching_actions(
         self, ego_speed: float, target_speed: float, max_actions: int = 20

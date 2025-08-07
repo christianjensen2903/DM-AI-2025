@@ -13,6 +13,7 @@ def test_game_with_api():
     pygame.init()
 
     seed = random.randint(1, 1000000)
+    # seed = 794775
 
     print("🚗 Starting race car game with API integration...")
     print("API URL: http://localhost:8000")
