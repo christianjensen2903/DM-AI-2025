@@ -60,7 +60,7 @@ class TrainingDataEvaluator:
         cleaned_root = self.data_dir / "cleaned_topics"
 
         self.topic2id, self.id2topic = load_topics(topics_json)
-        self.normalize = True
+        self.normalize = False
 
         print("Loading documents...")
         documents = load_cleaned_documents(
@@ -339,17 +339,13 @@ class TrainingDataEvaluator:
                 ),
                 "error_type": error.error_type,
                 "llm_response": error.llm_response,
-                "top_3_snippets": [
+                "top_snippets": [
                     {
                         "topic_name": snippet["topic_name"],
                         "topic_id": snippet["topic_id"],
-                        "content": (
-                            snippet["content"][:100] + "..."
-                            if len(snippet["content"]) > 100
-                            else snippet["content"]
-                        ),
+                        "content": snippet["content"],
                     }
-                    for snippet in error.top_snippets[:3]
+                    for snippet in error.top_snippets
                 ],
             }
             error_analysis["errors"].append(error_info)
