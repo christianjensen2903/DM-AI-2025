@@ -205,9 +205,6 @@ class CustomDataset(Dataset):
             torch.from_numpy(mask).unsqueeze(0).float()
         )  # Add channel dim: (H, W) -> (1, H, W)
 
-        print(f"Min: {image.min()}, Max: {image.max()}, Mean: {image.mean()}")
-        print(f"Min: {mask.min()}, Max: {mask.max()}, Mean: {mask.mean()}\n")
-
         return {
             "image": image,
             "mask": mask,
