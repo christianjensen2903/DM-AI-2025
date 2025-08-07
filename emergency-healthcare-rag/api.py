@@ -124,10 +124,11 @@ def parse_llm_response(llm_response: str) -> tuple[bool, int]:
         statement_topic = response["statement_topic"]
 
         # Handle topic if it's a string instead of an integer
-        if isinstance(statement_topic, str):
+        try:
+            statement_topic = int(statement_topic)
+        except ValueError:
             print(f"Converting string topic '{statement_topic}' to ID...")
 
-            # Try to find the topic ID
             if statement_topic in topic2id:
                 statement_topic = topic2id[statement_topic]
                 print(f"Found topic ID: {statement_topic}")
