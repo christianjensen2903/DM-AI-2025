@@ -12,6 +12,7 @@ import dotenv
 from typing import List, Dict
 from ollama import chat
 import json
+import re
 
 dotenv.load_dotenv()
 
@@ -79,6 +80,7 @@ Rules:
 - If snippets are mixed/ambiguous or only partially overlap, mark false.
 - When multiple snippets discuss the same content under different topics, choose the topic_id of the snippet that most precisely matches the statement.
 - Be conservative: prefer False if the match is not literal.
+- Write the JSON in a single line.
 
 Output JSON ONLY (no prose), exactly this schema:
 {{"is_true": true/false, "topic_id": <topic_id>}}
@@ -124,18 +126,14 @@ def parse_llm_response(llm_response: str) -> tuple[bool, int]:
     # Clean the response - remove markdown code blocks if present
     cleaned_response = llm_response.strip()
 
-    # Remove markdown code block markers if present
-    if cleaned_response.startswith("```json"):
-        cleaned_response = cleaned_response[7:]  # Remove "```json"
-    if cleaned_response.startswith("```"):
-        cleaned_response = cleaned_response[3:]  # Remove "```"
-    if cleaned_response.endswith("```"):
-        cleaned_response = cleaned_response[:-3]  # Remove trailing "```"
-
-    cleaned_response = cleaned_response.strip()
+    # Extract the first {...} block
+    m = re.search(r"\{.*\}", llm_response, flags=re.S)
+    if not m:
+        return False, -1, -1
+    text = m.group(0)
 
     try:
-        response = json.loads(cleaned_response)
+        response = json.loads(text)
         statement_is_true = response["is_true"]
         statement_topic = response["topic_id"]
 
