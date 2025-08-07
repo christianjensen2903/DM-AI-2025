@@ -74,6 +74,7 @@ Retrieved Snippets:
 
 Based only on the above snippets, please provide your response in the following format and no other text:
 {{"statement_is_true": true/false, "statement_topic": <topic_id>}}
+Remember to use the topic id not the topic name.
 
 Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
 To be correct the exact information has to be present in one of the snippets.
