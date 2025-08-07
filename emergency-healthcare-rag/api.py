@@ -79,7 +79,6 @@ Rules:
 - If snippets are mixed/ambiguous or only partially overlap, mark false.
 - When multiple snippets discuss the same content under different topics, choose the topic_id of the snippet that most precisely matches the statement.
 - Be conservative: prefer False if the match is not literal.
-- Write the JSON in a single line.
 
 Output JSON ONLY (no prose), exactly this schema:
 {{"is_true": true/false, "topic_id": <topic_id>}}
@@ -108,7 +107,6 @@ def query_llm(prompt: str) -> str:
         options={
             "temperature": 0,
             "num_predict": 40,  # tiny budget; JSON only
-            "stop": ["\n", "}"],  # model stops right after closing brace
             "format": "json",  # force JSON formatting
         },
     )
