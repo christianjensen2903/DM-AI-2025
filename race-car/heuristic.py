@@ -89,7 +89,7 @@ class HeuristicAgent:
         self.has_braked = False
         self.last_measurement: dict[str, float | None] = {}
         self.current_lane = 0
-        self.max_speed = 30
+        self.max_speed = 35
         self.driving_state = DrivingState.DRIVING
         self.speed_matching_threshold = (
             0.8  # Match speed if other car is 80% of max speed

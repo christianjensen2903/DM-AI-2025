@@ -1,0 +1,1757 @@
+[
+  {
+    "max_speed": 10,
+    "seed": 1,
+    "distance": 16895.599999999766,
+    "crashed": true,
+    "elapsed_ticks": 1774,
+    "elapsed_time_ms": 33915,
+    "avg_speed": 9.524013528748458
+  },
+  {
+    "max_speed": 10,
+    "seed": 2,
+    "distance": 42108.200000000004,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67223,
+    "avg_speed": 11.693474034990281
+  },
+  {
+    "max_speed": 10,
+    "seed": 3,
+    "distance": 11052.899999999967,
+    "crashed": true,
+    "elapsed_ticks": 1595,
+    "elapsed_time_ms": 29610,
+    "avg_speed": 6.929717868338537
+  },
+  {
+    "max_speed": 10,
+    "seed": 4,
+    "distance": 57979.10000000039,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66575,
+    "avg_speed": 16.100833101916244
+  },
+  {
+    "max_speed": 10,
+    "seed": 5,
+    "distance": 47714.00000000153,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67265,
+    "avg_speed": 13.250208275479459
+  },
+  {
+    "max_speed": 10,
+    "seed": 6,
+    "distance": 59904.69999999871,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66498,
+    "avg_speed": 16.63557345181858
+  },
+  {
+    "max_speed": 10,
+    "seed": 7,
+    "distance": 40626.90000000021,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67466,
+    "avg_speed": 11.282116078867041
+  },
+  {
+    "max_speed": 10,
+    "seed": 8,
+    "distance": 38738.20000000087,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67553,
+    "avg_speed": 10.757622882532871
+  },
+  {
+    "max_speed": 10,
+    "seed": 9,
+    "distance": 46895.39999999912,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67866,
+    "avg_speed": 13.02288253262958
+  },
+  {
+    "max_speed": 10,
+    "seed": 10,
+    "distance": 48231.20000000005,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67654,
+    "avg_speed": 13.39383504582062
+  },
+  {
+    "max_speed": 10,
+    "seed": 11,
+    "distance": 55102.50000000003,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 68919,
+    "avg_speed": 15.301999444598732
+  },
+  {
+    "max_speed": 10,
+    "seed": 12,
+    "distance": 40849.30000000013,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66317,
+    "avg_speed": 11.343876700916447
+  },
+  {
+    "max_speed": 10,
+    "seed": 13,
+    "distance": 35305.00000000024,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66811,
+    "avg_speed": 9.804221049708481
+  },
+  {
+    "max_speed": 10,
+    "seed": 14,
+    "distance": 51159.299999999836,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 68136,
+    "avg_speed": 14.206970286031613
+  },
+  {
+    "max_speed": 10,
+    "seed": 15,
+    "distance": 11306.09999999992,
+    "crashed": true,
+    "elapsed_ticks": 1262,
+    "elapsed_time_ms": 23677,
+    "avg_speed": 8.95887480190168
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 1,
+    "distance": 45204.199999997065,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 68162,
+    "avg_speed": 12.553235212440173
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 2,
+    "distance": 45466.60000000304,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67224,
+    "avg_speed": 12.626103860039722
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 3,
+    "distance": 17070.99999999987,
+    "crashed": true,
+    "elapsed_ticks": 1737,
+    "elapsed_time_ms": 32083,
+    "avg_speed": 9.82786413356354
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 4,
+    "distance": 23116.60000000036,
+    "crashed": true,
+    "elapsed_ticks": 1876,
+    "elapsed_time_ms": 34631,
+    "avg_speed": 12.322281449893582
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 5,
+    "distance": 61944.40000000031,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66565,
+    "avg_speed": 17.20199944459881
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 6,
+    "distance": 55811.89999999875,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66513,
+    "avg_speed": 15.499000277700292
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 7,
+    "distance": 59852.500000002095,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 68050,
+    "avg_speed": 16.62107747847878
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 8,
+    "distance": 51590.100000000515,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67073,
+    "avg_speed": 14.326603721188702
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 9,
+    "distance": 45039.0000000001,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67850,
+    "avg_speed": 12.507359066925883
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 10,
+    "distance": 50146.80000000237,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67227,
+    "avg_speed": 13.925798389336952
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 11,
+    "distance": 54842.40000000079,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66917,
+    "avg_speed": 15.229769508470088
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 12,
+    "distance": 59484.50000000134,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66991,
+    "avg_speed": 16.51888364343275
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 13,
+    "distance": 48803.29999999787,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66874,
+    "avg_speed": 13.552707581226846
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 14,
+    "distance": 60839.599999997714,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 66887,
+    "avg_speed": 16.895195778949656
+  },
+  {
+    "max_speed": 12.5,
+    "seed": 15,
+    "distance": 59363.1999999989,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67000,
+    "avg_speed": 16.485198555956373
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 1,
+    "distance": 50171.39999999784,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 67279,
+    "avg_speed": 13.932629825047998
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 2,
+    "distance": 61363.20000000242,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74715,
+    "avg_speed": 17.040599833380288
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 3,
+    "distance": 5818.400000000026,
+    "crashed": true,
+    "elapsed_ticks": 635,
+    "elapsed_time_ms": 13160,
+    "avg_speed": 9.162834645669331
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 4,
+    "distance": 67856.59999999819,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74844,
+    "avg_speed": 18.843821160788167
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 5,
+    "distance": 62281.29999999901,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74631,
+    "avg_speed": 17.295556789780342
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 6,
+    "distance": 53908.89999999648,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75058,
+    "avg_speed": 14.970535962231736
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 7,
+    "distance": 61227.89999999835,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74771,
+    "avg_speed": 17.003026936961497
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 8,
+    "distance": 53593.20000000001,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74838,
+    "avg_speed": 14.882865870591505
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 9,
+    "distance": 71994.19999999882,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74748,
+    "avg_speed": 19.992835323520914
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 10,
+    "distance": 50789.50000000014,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74632,
+    "avg_speed": 14.104276589836195
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 11,
+    "distance": 63980.19999999957,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74306,
+    "avg_speed": 17.767342404887412
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 12,
+    "distance": 73249.1000000007,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75287,
+    "avg_speed": 20.341321855040462
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 13,
+    "distance": 54608.70000000228,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75101,
+    "avg_speed": 15.164870869203632
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 14,
+    "distance": 58385.700000000914,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75053,
+    "avg_speed": 16.21374618161647
+  },
+  {
+    "max_speed": 15.0,
+    "seed": 15,
+    "distance": 32631.300000000167,
+    "crashed": true,
+    "elapsed_ticks": 2568,
+    "elapsed_time_ms": 53658,
+    "avg_speed": 12.706892523364552
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 1,
+    "distance": 74019.40000000015,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74909,
+    "avg_speed": 20.555234657039755
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 2,
+    "distance": 4967.899999999988,
+    "crashed": true,
+    "elapsed_ticks": 438,
+    "elapsed_time_ms": 9206,
+    "avg_speed": 11.342237442922347
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 3,
+    "distance": 4803.4999999999945,
+    "crashed": true,
+    "elapsed_ticks": 463,
+    "elapsed_time_ms": 9640,
+    "avg_speed": 10.37473002159826
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 4,
+    "distance": 82607.89999999807,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75183,
+    "avg_speed": 22.940266592612627
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 5,
+    "distance": 63134.70000000034,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74850,
+    "avg_speed": 17.532546514857078
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 6,
+    "distance": 67050.69999999682,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74297,
+    "avg_speed": 18.620022216050216
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 7,
+    "distance": 64166.09999999949,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75005,
+    "avg_speed": 17.81896695362385
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 8,
+    "distance": 73838.59999999857,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74808,
+    "avg_speed": 20.505026381560278
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 9,
+    "distance": 58798.700000003184,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74999,
+    "avg_speed": 16.328436545404937
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 10,
+    "distance": 66882.70000000292,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74587,
+    "avg_speed": 18.57336850874838
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 11,
+    "distance": 62667.70000000003,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75132,
+    "avg_speed": 17.40286031657874
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 12,
+    "distance": 65066.89999999667,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75194,
+    "avg_speed": 18.06911968897436
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 13,
+    "distance": 79641.90000000068,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75254,
+    "avg_speed": 22.116606498195136
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 14,
+    "distance": 73998.40000000231,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74723,
+    "avg_speed": 20.54940294362741
+  },
+  {
+    "max_speed": 17.5,
+    "seed": 15,
+    "distance": 6052.399999999964,
+    "crashed": true,
+    "elapsed_ticks": 586,
+    "elapsed_time_ms": 12197,
+    "avg_speed": 10.328327645051134
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 1,
+    "distance": 88793.70000000388,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75005,
+    "avg_speed": 24.658067203555646
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 2,
+    "distance": 5237.399999999972,
+    "crashed": true,
+    "elapsed_ticks": 475,
+    "elapsed_time_ms": 9853,
+    "avg_speed": 11.026105263157836
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 3,
+    "distance": 59877.30000000102,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74680,
+    "avg_speed": 16.62796445431853
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 4,
+    "distance": 72823.70000000046,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74984,
+    "avg_speed": 20.223188003332535
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 5,
+    "distance": 63376.60000000005,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74728,
+    "avg_speed": 17.599722299361304
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 6,
+    "distance": 80722.6000000014,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74991,
+    "avg_speed": 22.41671757845082
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 7,
+    "distance": 70440.90000000014,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74816,
+    "avg_speed": 19.561482921410757
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 8,
+    "distance": 65636.500000001,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75032,
+    "avg_speed": 18.227297972785617
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 9,
+    "distance": 77316.00000000102,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75532,
+    "avg_speed": 21.470702582616223
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 10,
+    "distance": 73255.99999999691,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75350,
+    "avg_speed": 20.343237989446518
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 11,
+    "distance": 13203.400000000152,
+    "crashed": true,
+    "elapsed_ticks": 829,
+    "elapsed_time_ms": 17463,
+    "avg_speed": 15.926899879372922
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 12,
+    "distance": 77420.49999999777,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74992,
+    "avg_speed": 21.49972229936067
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 13,
+    "distance": 85647.30000000019,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75213,
+    "avg_speed": 23.784309913912857
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 14,
+    "distance": 84340.50000000087,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74951,
+    "avg_speed": 23.421410719244896
+  },
+  {
+    "max_speed": 20.0,
+    "seed": 15,
+    "distance": 4998.400000000001,
+    "crashed": true,
+    "elapsed_ticks": 452,
+    "elapsed_time_ms": 9403,
+    "avg_speed": 11.058407079646019
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 1,
+    "distance": 88692.499999994,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74916,
+    "avg_speed": 24.629963898915303
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 2,
+    "distance": 5404.4999999999845,
+    "crashed": true,
+    "elapsed_ticks": 495,
+    "elapsed_time_ms": 10318,
+    "avg_speed": 10.918181818181788
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 3,
+    "distance": 5434.300000000045,
+    "crashed": true,
+    "elapsed_ticks": 568,
+    "elapsed_time_ms": 11809,
+    "avg_speed": 9.567429577464868
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 4,
+    "distance": 99783.20000000048,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74675,
+    "avg_speed": 27.70985837267439
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 5,
+    "distance": 85578.99999999939,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74741,
+    "avg_speed": 23.76534296028864
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 6,
+    "distance": 100482.69999999966,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74737,
+    "avg_speed": 27.904109969452836
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 7,
+    "distance": 88606.79999999898,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75331,
+    "avg_speed": 24.606164954179114
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 8,
+    "distance": 75020.50000000106,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75492,
+    "avg_speed": 20.833240766454058
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 9,
+    "distance": 10508.099999999971,
+    "crashed": true,
+    "elapsed_ticks": 653,
+    "elapsed_time_ms": 13775,
+    "avg_speed": 16.09203675344559
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 10,
+    "distance": 100291.70000000042,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75093,
+    "avg_speed": 27.851069147459157
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 11,
+    "distance": 82117.6999999978,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75263,
+    "avg_speed": 22.80413773951619
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 12,
+    "distance": 85444.49999999927,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75194,
+    "avg_speed": 23.727992224381914
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 13,
+    "distance": 88145.29999999885,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75036,
+    "avg_speed": 24.478006109413734
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 14,
+    "distance": 74241.3999999999,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74987,
+    "avg_speed": 20.61688419883363
+  },
+  {
+    "max_speed": 22.5,
+    "seed": 15,
+    "distance": 5523.800000000017,
+    "crashed": true,
+    "elapsed_ticks": 526,
+    "elapsed_time_ms": 10969,
+    "avg_speed": 10.50152091254756
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 1,
+    "distance": 100466.19999999827,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74772,
+    "avg_speed": 27.899527908913708
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 2,
+    "distance": 4448.199999999979,
+    "crashed": true,
+    "elapsed_ticks": 380,
+    "elapsed_time_ms": 7831,
+    "avg_speed": 11.705789473684154
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 3,
+    "distance": 4622.700000000007,
+    "crashed": true,
+    "elapsed_ticks": 451,
+    "elapsed_time_ms": 9403,
+    "avg_speed": 10.249889135255005
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 4,
+    "distance": 114153.1000000012,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75046,
+    "avg_speed": 31.700388780894528
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 5,
+    "distance": 6578.499999999995,
+    "crashed": true,
+    "elapsed_ticks": 344,
+    "elapsed_time_ms": 7195,
+    "avg_speed": 19.123546511627893
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 6,
+    "distance": 101817.3000000012,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75063,
+    "avg_speed": 28.274729241877587
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 7,
+    "distance": 108530.00000000218,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75138,
+    "avg_speed": 30.13885031935634
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 8,
+    "distance": 78394.60000000002,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75324,
+    "avg_speed": 21.770230491530135
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 9,
+    "distance": 14503.5,
+    "crashed": true,
+    "elapsed_ticks": 926,
+    "elapsed_time_ms": 19449,
+    "avg_speed": 15.662526997840173
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 10,
+    "distance": 101242.99999999908,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75259,
+    "avg_speed": 28.115245765065005
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 11,
+    "distance": 11031.600000000011,
+    "crashed": true,
+    "elapsed_ticks": 656,
+    "elapsed_time_ms": 13672,
+    "avg_speed": 16.816463414634164
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 12,
+    "distance": 105594.7999999982,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74980,
+    "avg_speed": 29.32374340460933
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 13,
+    "distance": 80064.60000000063,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74879,
+    "avg_speed": 22.23399055817846
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 14,
+    "distance": 115853.39999999989,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74859,
+    "avg_speed": 32.172563176895274
+  },
+  {
+    "max_speed": 25.0,
+    "seed": 15,
+    "distance": 5753.399999999963,
+    "crashed": true,
+    "elapsed_ticks": 552,
+    "elapsed_time_ms": 11569,
+    "avg_speed": 10.422826086956455
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 1,
+    "distance": 90455.20000000013,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74949,
+    "avg_speed": 25.11946681477371
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 2,
+    "distance": 5612.399999999987,
+    "crashed": true,
+    "elapsed_ticks": 521,
+    "elapsed_time_ms": 10864,
+    "avg_speed": 10.772360844529725
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 3,
+    "distance": 96220.29999999986,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74774,
+    "avg_speed": 26.720438767009124
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 4,
+    "distance": 108844.40000000139,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74737,
+    "avg_speed": 30.226159400167006
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 5,
+    "distance": 7068.600000000042,
+    "crashed": true,
+    "elapsed_ticks": 362,
+    "elapsed_time_ms": 7558,
+    "avg_speed": 19.52651933701669
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 6,
+    "distance": 95277.69999999863,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74912,
+    "avg_speed": 26.458678144959354
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 7,
+    "distance": 90860.89999999951,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75220,
+    "avg_speed": 25.23212996389878
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 8,
+    "distance": 80659.40000000045,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75233,
+    "avg_speed": 22.39916689808399
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 9,
+    "distance": 10089.299999999983,
+    "crashed": true,
+    "elapsed_ticks": 589,
+    "elapsed_time_ms": 12355,
+    "avg_speed": 17.129541595925268
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 10,
+    "distance": 87682.79999999993,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75204,
+    "avg_speed": 24.34956956400998
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 11,
+    "distance": 10589.70000000009,
+    "crashed": true,
+    "elapsed_ticks": 685,
+    "elapsed_time_ms": 14433,
+    "avg_speed": 15.459416058394291
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 12,
+    "distance": 89179.19999999793,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75192,
+    "avg_speed": 24.765120799777264
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 13,
+    "distance": 84764.90000000344,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74849,
+    "avg_speed": 23.53926687031476
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 14,
+    "distance": 91689.99999999591,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74547,
+    "avg_speed": 25.46237156345346
+  },
+  {
+    "max_speed": 27.5,
+    "seed": 15,
+    "distance": 4750.899999999983,
+    "crashed": true,
+    "elapsed_ticks": 417,
+    "elapsed_time_ms": 8681,
+    "avg_speed": 11.393045563549121
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 1,
+    "distance": 100641.30000000056,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74618,
+    "avg_speed": 27.948153290752725
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 2,
+    "distance": 5404.4999999999845,
+    "crashed": true,
+    "elapsed_ticks": 495,
+    "elapsed_time_ms": 10272,
+    "avg_speed": 10.918181818181788
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 3,
+    "distance": 5434.300000000045,
+    "crashed": true,
+    "elapsed_ticks": 568,
+    "elapsed_time_ms": 11788,
+    "avg_speed": 9.567429577464868
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 4,
+    "distance": 127039.19999999815,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74801,
+    "avg_speed": 35.27886698139354
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 5,
+    "distance": 6844.100000000023,
+    "crashed": true,
+    "elapsed_ticks": 354,
+    "elapsed_time_ms": 7335,
+    "avg_speed": 19.333615819209104
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 6,
+    "distance": 103652.80000000203,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74594,
+    "avg_speed": 28.78444876423272
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 7,
+    "distance": 97908.79999999989,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74900,
+    "avg_speed": 27.18933629547345
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 8,
+    "distance": 96809.09999999526,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74809,
+    "avg_speed": 26.883948903081162
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 9,
+    "distance": 15046.200000000028,
+    "crashed": true,
+    "elapsed_ticks": 724,
+    "elapsed_time_ms": 15163,
+    "avg_speed": 20.782044198895065
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 10,
+    "distance": 114436.50000000159,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75500,
+    "avg_speed": 31.779089141905466
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 11,
+    "distance": 106923.00000000345,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75223,
+    "avg_speed": 29.69258539294736
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 12,
+    "distance": 101825.59999999912,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74923,
+    "avg_speed": 28.277034157178317
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 13,
+    "distance": 104975.00000000295,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74868,
+    "avg_speed": 29.15162454873728
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 14,
+    "distance": 117089.89999999834,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74812,
+    "avg_speed": 32.515940016661574
+  },
+  {
+    "max_speed": 30.0,
+    "seed": 15,
+    "distance": 3744.5999999999913,
+    "crashed": true,
+    "elapsed_ticks": 287,
+    "elapsed_time_ms": 5982,
+    "avg_speed": 13.047386759581851
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 1,
+    "distance": 109357.40000000015,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74726,
+    "avg_speed": 30.368619827825647
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 2,
+    "distance": 5042.500000000027,
+    "crashed": true,
+    "elapsed_ticks": 450,
+    "elapsed_time_ms": 9370,
+    "avg_speed": 11.205555555555616
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 3,
+    "distance": 5067.3000000000075,
+    "crashed": true,
+    "elapsed_ticks": 493,
+    "elapsed_time_ms": 10279,
+    "avg_speed": 10.278498985801232
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 4,
+    "distance": 139430.09999999887,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74726,
+    "avg_speed": 38.71982782560369
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 5,
+    "distance": 116201.9000000043,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74811,
+    "avg_speed": 32.269341849487446
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 6,
+    "distance": 127097.79999999987,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74998,
+    "avg_speed": 35.29514023882251
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 7,
+    "distance": 121401.29999999623,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75191,
+    "avg_speed": 33.71321855040162
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 8,
+    "distance": 101025.3999999942,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75528,
+    "avg_speed": 28.054818106080035
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 9,
+    "distance": 117423.70000000029,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75154,
+    "avg_speed": 32.608636489864004
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 10,
+    "distance": 104441.19999999998,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74811,
+    "avg_speed": 29.003387947792277
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 11,
+    "distance": 102190.20000000113,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74990,
+    "avg_speed": 28.378283810053077
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 12,
+    "distance": 113777.000000007,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75206,
+    "avg_speed": 31.595945570676758
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 13,
+    "distance": 120386.0000000012,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74959,
+    "avg_speed": 33.43126909191924
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 14,
+    "distance": 111549.90000000082,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74718,
+    "avg_speed": 30.97747847820073
+  },
+  {
+    "max_speed": 32.5,
+    "seed": 15,
+    "distance": 4197.900000000018,
+    "crashed": true,
+    "elapsed_ticks": 342,
+    "elapsed_time_ms": 7139,
+    "avg_speed": 12.274561403508825
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 1,
+    "distance": 112491.90000000171,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74824,
+    "avg_speed": 31.23907247986718
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 2,
+    "distance": 5042.500000000027,
+    "crashed": true,
+    "elapsed_ticks": 450,
+    "elapsed_time_ms": 9424,
+    "avg_speed": 11.205555555555616
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 3,
+    "distance": 5067.3000000000075,
+    "crashed": true,
+    "elapsed_ticks": 493,
+    "elapsed_time_ms": 10257,
+    "avg_speed": 10.278498985801232
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 4,
+    "distance": 144121.39999999895,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74763,
+    "avg_speed": 40.02260483199082
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 5,
+    "distance": 119151.00000000314,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75201,
+    "avg_speed": 33.08830880311112
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 6,
+    "distance": 119871.80000000296,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75394,
+    "avg_speed": 33.2884754234943
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 7,
+    "distance": 137935.20000000286,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75297,
+    "avg_speed": 38.30469314079502
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 8,
+    "distance": 13893.000000000053,
+    "crashed": true,
+    "elapsed_ticks": 790,
+    "elapsed_time_ms": 16479,
+    "avg_speed": 17.586075949367157
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 9,
+    "distance": 107197.4999999998,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75196,
+    "avg_speed": 29.768814218272645
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 10,
+    "distance": 114416.30000000034,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75016,
+    "avg_speed": 31.77347958900315
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 11,
+    "distance": 108182.80000000006,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74934,
+    "avg_speed": 30.04243265759513
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 12,
+    "distance": 113432.80000000053,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74940,
+    "avg_speed": 31.50036101083047
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 13,
+    "distance": 130132.00000000876,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74988,
+    "avg_speed": 36.13773951680332
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 14,
+    "distance": 106334.30000000111,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74491,
+    "avg_speed": 29.52910302693727
+  },
+  {
+    "max_speed": 35.0,
+    "seed": 15,
+    "distance": 3364.4999999999995,
+    "crashed": true,
+    "elapsed_ticks": 241,
+    "elapsed_time_ms": 4978,
+    "avg_speed": 13.960580912863069
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 1,
+    "distance": 10787.199999999988,
+    "crashed": true,
+    "elapsed_ticks": 431,
+    "elapsed_time_ms": 8916,
+    "avg_speed": 25.028306264501133
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 2,
+    "distance": 5042.500000000027,
+    "crashed": true,
+    "elapsed_ticks": 450,
+    "elapsed_time_ms": 9387,
+    "avg_speed": 11.205555555555616
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 3,
+    "distance": 5067.3000000000075,
+    "crashed": true,
+    "elapsed_ticks": 493,
+    "elapsed_time_ms": 10259,
+    "avg_speed": 10.278498985801232
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 4,
+    "distance": 150580.59999999907,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74875,
+    "avg_speed": 41.816328797555975
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 5,
+    "distance": 7150.199999999994,
+    "crashed": true,
+    "elapsed_ticks": 365,
+    "elapsed_time_ms": 7703,
+    "avg_speed": 19.589589041095874
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 6,
+    "distance": 126900.70000000036,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75245,
+    "avg_speed": 35.24040544293262
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 7,
+    "distance": 120559.5999999995,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75297,
+    "avg_speed": 33.479477922799084
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 8,
+    "distance": 116503.20000000011,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75228,
+    "avg_speed": 32.35301305193005
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 9,
+    "distance": 133259.30000000107,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75031,
+    "avg_speed": 37.00619272424356
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 10,
+    "distance": 138496.90000000127,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74879,
+    "avg_speed": 38.46067758955881
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 11,
+    "distance": 117408.69999999923,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74922,
+    "avg_speed": 32.60447098028304
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 12,
+    "distance": 118153.50000000125,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74928,
+    "avg_speed": 32.811302415995904
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 13,
+    "distance": 128103.20000000195,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74790,
+    "avg_speed": 35.5743404609836
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 14,
+    "distance": 117137.79999999944,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74904,
+    "avg_speed": 32.52924187725616
+  },
+  {
+    "max_speed": 37.5,
+    "seed": 15,
+    "distance": 3364.4999999999995,
+    "crashed": true,
+    "elapsed_ticks": 241,
+    "elapsed_time_ms": 5030,
+    "avg_speed": 13.960580912863069
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 1,
+    "distance": 10731.500000000058,
+    "crashed": true,
+    "elapsed_ticks": 431,
+    "elapsed_time_ms": 8915,
+    "avg_speed": 24.899071925754196
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 2,
+    "distance": 5042.500000000027,
+    "crashed": true,
+    "elapsed_ticks": 450,
+    "elapsed_time_ms": 9389,
+    "avg_speed": 11.205555555555616
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 3,
+    "distance": 5067.3000000000075,
+    "crashed": true,
+    "elapsed_ticks": 493,
+    "elapsed_time_ms": 10351,
+    "avg_speed": 10.278498985801232
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 4,
+    "distance": 156192.59999999517,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74790,
+    "avg_speed": 43.37478478200366
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 5,
+    "distance": 13539.200000000004,
+    "crashed": true,
+    "elapsed_ticks": 634,
+    "elapsed_time_ms": 13203,
+    "avg_speed": 21.35520504731862
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 6,
+    "distance": 125474.49999999994,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74643,
+    "avg_speed": 34.84434879200221
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 7,
+    "distance": 138898.90000000066,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75131,
+    "avg_speed": 38.572313246320654
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 8,
+    "distance": 35311.10000000007,
+    "crashed": true,
+    "elapsed_ticks": 1616,
+    "elapsed_time_ms": 33719,
+    "avg_speed": 21.850928217821828
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 9,
+    "distance": 9681.00000000001,
+    "crashed": true,
+    "elapsed_ticks": 593,
+    "elapsed_time_ms": 12391,
+    "avg_speed": 16.325463743676238
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 10,
+    "distance": 139927.09999999916,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75019,
+    "avg_speed": 38.85784504304337
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 11,
+    "distance": 17628.70000000001,
+    "crashed": true,
+    "elapsed_ticks": 1022,
+    "elapsed_time_ms": 21481,
+    "avg_speed": 17.24921722113504
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 12,
+    "distance": 122317.5999999993,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 75360,
+    "avg_speed": 33.96767564565379
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 13,
+    "distance": 131711.5999999999,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74911,
+    "avg_speed": 36.576395445709494
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 14,
+    "distance": 117873.79999999989,
+    "crashed": false,
+    "elapsed_ticks": 3601,
+    "elapsed_time_ms": 74558,
+    "avg_speed": 32.733629547347924
+  },
+  {
+    "max_speed": 40.0,
+    "seed": 15,
+    "distance": 3364.4999999999995,
+    "crashed": true,
+    "elapsed_ticks": 241,
+    "elapsed_time_ms": 5007,
+    "avg_speed": 13.960580912863069
+  }
+]
