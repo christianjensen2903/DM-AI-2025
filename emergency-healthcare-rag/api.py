@@ -21,7 +21,7 @@ cleaned_root = base / "cleaned_topics"
 
 topic2id, id2topic = load_topics(topics_json)
 
-normalize = True
+normalize = False
 
 documents = load_cleaned_documents(cleaned_root, topic2id, normalize=normalize)
 
@@ -76,6 +76,7 @@ Based only on the above snippets, please provide your response in the following 
 {{"statement_is_true": true/false, "statement_topic": <topic_id>}}
 
 Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
+To be correct the exact information has to be present in one of the snippets.
 """
     snippets_text = "\n\n".join(
         f"Snippet {i+1} (Topic: {s['topic_name']}, Topic ID: {s['topic_id']}):\n{s['content']}"
@@ -141,7 +142,7 @@ def predict_llm_endpoint(request: LLMPredictionRequestDto):
     top_snippets = []
     for doc in retrieved[:10]:
         snippet_info = {
-            "content": doc.metadata.get("original_content", doc.page_content),
+            "content": doc.page_content,
             "topic_name": doc.metadata.get("topic_name", "Unknown"),
             "topic_id": doc.metadata.get("topic_id", -1),
         }
