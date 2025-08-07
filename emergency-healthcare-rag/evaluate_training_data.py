@@ -118,7 +118,7 @@ class TrainingDataEvaluator:
         top_snippets = []
         for doc in retrieved[:5]:
             snippet_info = {
-                "content": doc.metadata.get("original_content", doc.page_content),
+                "content": doc.page_content,
                 "topic_name": doc.metadata.get("topic_name", "Unknown"),
                 "topic_id": doc.metadata.get("topic_id", -1),
                 "score": (
@@ -324,11 +324,7 @@ class TrainingDataEvaluator:
         for error in errors:
             error_info = {
                 "statement_id": error.statement_id,
-                "statement_text": (
-                    error.statement_text[:200] + "..."
-                    if len(error.statement_text) > 200
-                    else error.statement_text
-                ),
+                "statement_text": error.statement_text,
                 "true_label": error.true_label,
                 "true_topic": error.true_topic,
                 "true_topic_name": self.id2topic.get(error.true_topic, "Unknown"),

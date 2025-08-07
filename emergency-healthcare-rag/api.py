@@ -73,10 +73,10 @@ Retrieved Snippets:
 {snippets}
 
 Based only on the above snippets, please provide your response in the following format and no other text:
-{{"statement_is_true": true/false, "statement_topic": <topic_id>}}
+{{"is_true": true/false, "topic_id": <topic_id>}}
 
 Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
-To be correct the exact information has to be present in one of the snippets.
+To be true the exact information has to be present in one of the snippets.
 """
     snippets_text = "\n\n".join(
         f"Snippet {i+1} (Topic: {s['topic_name']}, Topic ID: {s['topic_id']}):\n{s['content']}"
@@ -120,8 +120,8 @@ def parse_llm_response(llm_response: str) -> tuple[bool, int]:
 
     try:
         response = json.loads(cleaned_response)
-        statement_is_true = response["statement_is_true"]
-        statement_topic = response["statement_topic"]
+        statement_is_true = response["is_true"]
+        statement_topic = response["topic_id"]
 
         # Handle topic if it's a string instead of an integer
         try:
@@ -158,7 +158,7 @@ def predict_llm_endpoint(request: LLMPredictionRequestDto):
 
     # Get top 5 snippets with topic information
     top_snippets = []
-    for doc in retrieved[:10]:
+    for doc in retrieved[:3]:
         snippet_info = {
             "content": doc.page_content,
             "topic_name": doc.metadata.get("topic_name", "Unknown"),
