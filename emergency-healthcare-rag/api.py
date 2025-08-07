@@ -74,7 +74,6 @@ Retrieved Snippets:
 
 Based only on the above snippets, please provide your response in the following format and no other text:
 {{"statement_is_true": true/false, "statement_topic": <topic_id>}}
-Remember to use the topic id not the topic name.
 
 Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
 To be correct the exact information has to be present in one of the snippets.
@@ -121,7 +120,24 @@ def parse_llm_response(llm_response: str) -> tuple[bool, int]:
 
     try:
         response = json.loads(cleaned_response)
-        return response["statement_is_true"], response["statement_topic"]
+        statement_is_true = response["statement_is_true"]
+        statement_topic = response["statement_topic"]
+
+        # Handle topic if it's a string instead of an integer
+        if isinstance(statement_topic, str):
+            print(f"Converting string topic '{statement_topic}' to ID...")
+
+            # Try to find the topic ID
+            if statement_topic in topic2id:
+                statement_topic = topic2id[statement_topic]
+                print(f"Found topic ID: {statement_topic}")
+            else:
+                print(
+                    f"Warning: Topic '{statement_topic}' not found in topics.json, defaulting to -1"
+                )
+                statement_topic = -1
+
+        return statement_is_true, statement_topic
     except Exception as e:
         print(f"Error parsing LLM response: {e}")
         print(f"Original LLM response: {llm_response}")
