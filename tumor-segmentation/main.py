@@ -128,7 +128,7 @@ def pad_image_to_size(image, target_height, target_width):
         image,
         ((0, bottom_pad), (left_pad, right_pad)),
         mode="constant",
-        constant_values=255,
+        constant_values=0,
     )
 
     # Crop if image is larger than desired size
@@ -204,6 +204,9 @@ class CustomDataset(Dataset):
         mask = (
             torch.from_numpy(mask).unsqueeze(0).float()
         )  # Add channel dim: (H, W) -> (1, H, W)
+
+        print(f"Min: {image.min()}, Max: {image.max()}, Mean: {image.mean()}")
+        print(f"Min: {mask.min()}, Max: {mask.max()}, Mean: {mask.mean()}\n")
 
         return {
             "image": image,
