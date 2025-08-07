@@ -400,4 +400,4 @@ class HeuristicAgent:
             self.current_lane += 1
             return switch_down()
         else:
-            return ["NOTHING"]
+            return ["NOTHING"] * 50
