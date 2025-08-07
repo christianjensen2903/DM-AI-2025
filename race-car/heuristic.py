@@ -10,7 +10,26 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # To disable logging, uncomment the line below:
-logger.setLevel(logging.CRITICAL)
+# logger.setLevel(logging.CRITICAL)
+
+SENSOR_ANGLES = {
+    0.0: "left_side",
+    22.5: "left_side_front",
+    45.0: "left_front",
+    67.5: "front_left_front",
+    90.0: "front",
+    112.5: "front_right_front",
+    135.0: "right_front",
+    157.5: "right_side_front",
+    180.0: "right_side",
+    202.5: "right_side_back",
+    225.0: "right_back",
+    247.5: "back_right_back",
+    270.0: "back",
+    292.5: "back_left_back",
+    315.0: "left_back",
+    337.5: "left_side_back",
+}
 
 ACTIONS = ["NOTHING", "ACCELERATE", "DECELERATE", "STEER_RIGHT", "STEER_LEFT"]
 
@@ -27,6 +46,31 @@ def brake():
     return ["DECELERATE"] * 47
 
 
+def safe_lane_change_distances(
+    lane_width: float, factor: float = 1.5
+) -> dict[str, float]:
+    """
+    Minimum clearance each sensor must report for the adjacent lane to be empty.
+
+    lane_width : width of one lane (same units as sensor range)
+    factor     : lateral clearance needed (1 lane to centre + 0.5 lane to far edge = 1.5 by default)
+
+    Returns {sensor_name: distance_or_inf}
+    """
+    out = {}
+    for angle, name in SENSOR_ANGLES.items():
+        cos_theta = math.cos(math.radians(angle))
+        out[name] = (
+            math.inf
+            if abs(cos_theta) < 1e-12
+            else round(factor * lane_width / abs(cos_theta), 2)
+        )
+    return out
+
+
+lane_change_thresholds = safe_lane_change_distances(224)
+
+
 def find_safest_side(
     sensors: dict[str, float | None], min_gap: float = 1.0, hysteresis: float = 0.1
 ) -> str | None:
@@ -36,46 +80,91 @@ def find_safest_side(
     min_gap: minimum required clearance on a side to consider it.
     hysteresis: relative difference required to prefer one side over the other.
     """
-    left_keys = [
+    # Side sensors (perpendicular to car direction) - safe at 600
+    left_side_keys = [
+        "left_side",
+        "left_side_back",
+        "left_side_front",
         "back_left_back",
         "left_back",
-        "left_side_back",
-        "left_side",
-        "left_side_front",
         "left_front",
     ]
-    right_keys = [
+    right_side_keys = [
+        "right_side",
+        "right_side_back",
+        "right_side_front",
         "back_right_back",
         "right_back",
-        "right_side_back",
-        "right_side",
-        "right_side_front",
         "right_front",
     ]
 
-    def min_clearance(keys):
-        vals = []
-        for k in keys:
+    def check_side_safety(side_name, side_keys):
+        # Check all sensors for this side using individual thresholds
+        all_sensors = side_keys
+        sensor_status = {}
+
+        for k in all_sensors:
             v = sensors.get(k, 1000) or 1000
-            vals.append(v)
+            threshold = lane_change_thresholds.get(k, float("inf"))
+            is_safe = v >= threshold
+            sensor_status[k] = (v, threshold, is_safe)
 
-        return min(vals)
+        # Check if all sensors are safe
+        all_safe = all(status[2] for status in sensor_status.values())
 
-    left = min_clearance(left_keys)
-    right = min_clearance(right_keys)
-    logger.info(f"Left: {left}, Right: {right}")
+        # Get minimum values for comparison
+        min_side = (
+            min(sensor_status[k][0] for k in side_keys) if side_keys else float("inf")
+        )
+        # Log detailed sensor information
+        unsafe_sensors = [
+            k for k, (v, threshold, safe) in sensor_status.items() if not safe
+        ]
+        if unsafe_sensors:
+            logger.info(
+                f"{side_name} side: UNSAFE - sensors below threshold: {unsafe_sensors}"
+            )
+            for sensor in unsafe_sensors:
+                v, threshold, _ = sensor_status[sensor]
+                logger.info(f"  {sensor}: {v:.1f} < {threshold:.1f}")
+        else:
+            logger.info(f"{side_name} side: SAFE - all sensors above thresholds")
 
-    # Neither side has enough clearance
-    if left < min_gap and right < min_gap:
+        return all_safe, min_side
+
+    left_safe, left_min = check_side_safety("Left", left_side_keys)
+    right_safe, right_min = check_side_safety("Right", right_side_keys)
+
+    # Neither side is safe
+    if not left_safe and not right_safe:
+        logger.info("Neither side is safe for lane change")
         return None
 
-    # Prefer side with meaningfully larger clearance
-    if left > right * (1 + hysteresis) and left >= min_gap:
+    # Only one side is safe
+    if left_safe and not right_safe:
+        logger.info("Only left side is safe")
         return "left"
-    if right > left * (1 + hysteresis) and right >= min_gap:
+    if right_safe and not left_safe:
+        logger.info("Only right side is safe")
         return "right"
 
-    return None
+    # Both sides are safe - prefer the one with more clearance
+    # Use the minimum of side and angled sensors for comparison
+    if left_min > right_min * (1 + hysteresis):
+        logger.info(
+            f"Both sides safe, preferring left (left: {left_min:.1f}, right: {right_min:.1f})"
+        )
+        return "left"
+    elif right_min > left_min * (1 + hysteresis):
+        logger.info(
+            f"Both sides safe, preferring right (left: {left_min:.1f}, right: {right_min:.1f})"
+        )
+        return "right"
+    else:
+        logger.info(
+            f"Both sides safe but too close to call (left: {left_min:.1f}, right: {right_min:.1f})"
+        )
+        return None
 
 
 class DrivingState(Enum):
@@ -89,7 +178,7 @@ class HeuristicAgent:
         self.has_braked = False
         self.last_measurement: dict[str, float | None] = {}
         self.current_lane = 0
-        self.max_speed = 35
+        self.max_speed = 32.5
         self.driving_state = DrivingState.DRIVING
         self.speed_matching_threshold = (
             0.8  # Match speed if other car is 80% of max speed
@@ -309,7 +398,7 @@ class HeuristicAgent:
         return ["ACCELERATE"] * accelerate_amount
 
     def _switch_lane(self, state: RaceCarPredictRequestDto) -> list[str]:
-        safest_side = find_safest_side(state.sensors, min_gap=10)
+        safest_side = find_safest_side(state.sensors)
         logger.info(f"Safest side: {safest_side}")
         if safest_side == "left":
             self.current_lane -= 1
