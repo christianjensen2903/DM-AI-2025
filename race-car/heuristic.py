@@ -10,7 +10,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # To disable logging, uncomment the line below:
-logger.setLevel(logging.CRITICAL)
+# logger.setLevel(logging.CRITICAL)
 
 SENSOR_ANGLES = {
     0.0: "left_side",
@@ -163,8 +163,6 @@ class HeuristicAgent:
         self.last_measurement: dict[str, float | None] = {}
         self.max_speed = 32.5
         self.driving_state = DrivingState.DRIVING
-        self.speed_match_threshold = 30
-        self.speed_matching_distance = 100
         # Lane change state tracking
         self.lane_change_target = None  # "left" or "right"
 
@@ -190,19 +188,6 @@ class HeuristicAgent:
         elif self.driving_state == DrivingState.MEASURING:
 
             if front and prev_front:
-                # Check if we should speed match with front car
-                front_car_speed = self._estimate_car_speed(
-                    front, prev_front, state.velocity["x"], "front"
-                )
-                if self._should_match_speed(front_car_speed, front):
-                    self.driving_state = DrivingState.DRIVING
-                    logger.info(
-                        f"Speed matching with front car during measuring: target speed {front_car_speed:.1f}"
-                    )
-                    return self._calculate_speed_matching_actions(
-                        state.velocity["x"], front_car_speed
-                    )
-
                 dv = prev_front - front
                 brake_amount = (
                     int(dv // 0.1) + 3
@@ -219,19 +204,6 @@ class HeuristicAgent:
                 self.last_measurement = state.sensors.copy()
                 return ["DECELERATE"]
             elif back and prev_back:
-                # Check if we should speed match with back car
-                back_car_speed = self._estimate_car_speed(
-                    back, prev_back, state.velocity["x"], "back"
-                )
-                if self._should_match_speed(back_car_speed, back):
-                    self.driving_state = DrivingState.DRIVING
-                    logger.info(
-                        f"Speed matching with back car during measuring: target speed {back_car_speed:.1f}"
-                    )
-                    return self._calculate_speed_matching_actions(
-                        state.velocity["x"], back_car_speed
-                    )
-
                 self.driving_state = DrivingState.DRIVING
                 dv = prev_back - back
                 if dv > 0:  # Car is getting closer
@@ -281,78 +253,11 @@ class HeuristicAgent:
 
         return max(0.0, other_car_speed)  # Speed can't be negative
 
-    def _should_match_speed(
-        self, estimated_speed: float, current_distance: float
-    ) -> bool:
-        """
-        Determine if we should match speed with a nearby car.
-        Returns True if the other car is close enough and at a significant speed.
-        """
-        if current_distance < self.speed_matching_distance:
-            return False
-
-        # Check if the other car's speed is significant (above threshold percentage of max speed)
-        return estimated_speed >= self.max_speed * 0.9
-
-    def _calculate_speed_matching_actions(
-        self, ego_speed: float, target_speed: float, max_actions: int = 20
-    ) -> list[str]:
-        """
-        Calculate actions needed to match the speed of another car.
-        """
-        speed_diff = target_speed - ego_speed
-
-        if abs(speed_diff) < 0.1:  # Already close enough
-            return ["NOTHING"] * max_actions
-
-        if speed_diff > 0:  # Need to accelerate
-            needed_steps = min(max_actions, int(speed_diff // 0.1))
-            return ["ACCELERATE"] * needed_steps + ["NOTHING"] * (
-                max_actions - needed_steps
-            )
-        else:  # Need to decelerate
-            needed_steps = min(max_actions, int(abs(speed_diff) // 0.1))
-            return ["DECELERATE"] * needed_steps + ["NOTHING"] * (
-                max_actions - needed_steps
-            )
-
     def _drive(self, state: RaceCarPredictRequestDto) -> list[str]:
         ego_speed = state.velocity["x"]
         max_actions = 20
         min_actions = 10
         threshold_speed = self.max_speed / 2  # 10 m/s if max_speed is 20
-
-        # Check for speed matching opportunities with nearby cars
-        front = state.sensors.get("front")
-        back = state.sensors.get("back")
-        prev_front = self.last_measurement.get("front")
-        prev_back = self.last_measurement.get("back")
-
-        # Check front car for speed matching
-        if front and prev_front:
-            front_car_speed = self._estimate_car_speed(
-                front, prev_front, ego_speed, "front"
-            )
-            if self._should_match_speed(front_car_speed, front):
-                logger.info(
-                    f"Speed matching with front car: target speed {front_car_speed:.1f}, ego speed {ego_speed:.1f}"
-                )
-                return self._calculate_speed_matching_actions(
-                    ego_speed, front_car_speed, max_actions
-                )
-
-        # Check back car for speed matching
-        if back and prev_back:
-            back_car_speed = self._estimate_car_speed(
-                back, prev_back, ego_speed, "back"
-            )
-            if self._should_match_speed(back_car_speed, back):
-                logger.info(
-                    f"Speed matching with back car: target speed {back_car_speed:.1f}, ego speed {ego_speed:.1f}"
-                )
-                return self._calculate_speed_matching_actions(
-                    ego_speed, back_car_speed, max_actions
-                )
 
         # Normal acceleration logic if no speed matching is needed
         dv = self.max_speed - ego_speed
