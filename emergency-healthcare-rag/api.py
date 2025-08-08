@@ -152,7 +152,7 @@ def parse_llm_response(llm_response: str, top_snippets: List[Dict]) -> tuple[boo
                 )
                 # Use the topic of the highest ranked snippet instead of -1
                 if top_snippets and len(top_snippets) > 0:
-                    statement_topic = top_snippets[0].metadata.get("topic_id", -1)
+                    statement_topic = top_snippets[0]["topic_id"]
                     print(f"Using highest ranked snippet topic: {statement_topic}")
                 else:
                     statement_topic = -1
@@ -166,7 +166,7 @@ def parse_llm_response(llm_response: str, top_snippets: List[Dict]) -> tuple[boo
         # Use the topic of the highest ranked snippet instead of -1
         fallback_topic = -1
         if top_snippets and len(top_snippets) > 0:
-            fallback_topic = top_snippets[0].metadata.get("topic_id", -1)
+            fallback_topic = top_snippets[0]["topic_id"]
             print(f"Using highest ranked snippet topic as fallback: {fallback_topic}")
 
         return False, fallback_topic
