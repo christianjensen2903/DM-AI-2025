@@ -619,15 +619,16 @@ if __name__ == "__main__":
 
     # Run single experiment with great params
     config = {
-        "learning_rate": 0.0001,
+        "learning_rate": 1e-4,
         "control_prob": 0,
-        "max_epochs": 50,  # Increased to allow for the 25-epoch check
-        "batch_size": 2,
+        "max_epochs": 200,
+        "batch_size": 4,
+        "weight_decay": 1e-4,
         "architecture": "unetplusplus",
-        "encoder": "efficientnet-b0",
+        "encoder": "efficientnet-b5",
         "encoder_weights": "imagenet",
         "loss_function": "DiceLoss+BCE",
-        "dice_weight": 0.25,
+        "dice_weight": 0,
         "optimizer": "Adam",
         "scheduler": "CosineAnnealingLR",
         # Early stopping parameters (optional)
@@ -640,12 +641,4 @@ if __name__ == "__main__":
         "dice_check_epoch": 25,  # check the threshold after this many epochs
     }
 
-    # To disable wandb, set enable_wandb=False
-    # This will use TensorBoard logging instead
-    run_experiment(config, experiment_name="baseline_experiment", enable_wandb=False)
-
-    # Example of running without wandb:
-    # run_experiment(config, experiment_name="baseline_experiment_no_wandb", enable_wandb=False)
-
-    # Uncomment the line below to run hyperparameter sweep
-    # run_hyperparameter_sweep()
+    run_experiment(config, experiment_name="baseline_experiment", enable_wandb=True)

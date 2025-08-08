@@ -24,9 +24,6 @@ class PredictResponseDto(BaseModel):
     img: str
 
 
-# 2 = 0.75 (Unet++ + EfficientNet B5)
-# 4 = 0.72 (Deeplabv3+ + Resnet50)
-
 app = FastAPI()
 
 # Check for GPU availability
@@ -34,13 +31,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Load both models for ensemble
-model_2 = TumorModel.load_from_checkpoint("5.ckpt")
-model_2.to(device)
-model_2.eval()
-
-# model_4 = TumorModel.load_from_checkpoint("4.ckpt")
-# model_4.to(device)
-# model_4.eval()
+model = TumorModel.load_from_checkpoint("2.ckpt")
+model.to(device)
+model.eval()
 
 
 @app.post("/predict", response_model=PredictResponseDto)
@@ -58,11 +51,7 @@ def predict_endpoint(request: PredictRequestDto):
 
     # Get logits from both models
     with torch.no_grad():
-        logits_mask = model_2.forward(img)
-        # logits_mask_4 = model_4.forward(img)
-
-        # # Average the logits from both models
-        # logits_mask = (logits_mask_2 + logits_mask_4) / 2.0
+        logits_mask = model.forward(img)
 
     prob_mask = logits_mask.sigmoid()
 
