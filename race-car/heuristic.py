@@ -10,7 +10,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # To disable logging, uncomment the line below:
-# logger.setLevel(logging.CRITICAL)
+logger.setLevel(logging.CRITICAL)
 
 SENSOR_ANGLES = {
     0.0: "left_side",
@@ -158,35 +158,46 @@ class DrivingState(Enum):
 
 
 TICK_SECONDS = 0.1  # approximate sim tick
-ACCEL_PER_ACTION = 0.1  # m/s gained per "ACCELERATE"
-SAFETY_TTC = 3.0  # seconds: start worrying below this TTC
-SAFETY_MARGIN = 0.5  # seconds margin for maneuver completion
-MATCH_TOL = 0.5  # m/s: "good enough" speed match tolerance
-MAX_ACCEL_ACTIONS_PER_DECISION = 50  # cap bursts
 
 
 class HeuristicAgent:
-    def __init__(self):
-        self.last_measurement: dict[str, float | None] = {}
-        # --- speed ramp config ---
-        self.base_max_speed = 20.0  # starting target (m/s)
-        self.speed_ramp_rate = 0.01
-        self.elapsed_time = 0.0  # internal clock
-        self.max_speed = self.base_max_speed
-        # --------------------------
+    def __init__(
+        self,
+        base_max_speed: float = 20.0,
+        speed_ramp_rate: float = 0.01,  # m/s per tick
+        safety_ttc: float = 3.0,
+        safety_margin: float = 0.5,
+        match_tol: float = 0.5,
+        max_accel_actions: int = 50,
+    ):
+        self.base_max_speed = base_max_speed
+        self.speed_ramp_rate = speed_ramp_rate
+        self.safety_ttc = safety_ttc
+        self.safety_margin = safety_margin
+        self.match_tol = match_tol
+        self.max_accel_actions = max_accel_actions
+        self.accel_per_action = 0.1
+
+        self.switch_len = 47
+        self.partial_len = 16
+        self.complete_len = 45
+
+        self.elapsed_time = 0.0
+        self.max_speed = base_max_speed
+
+        # thresholds derived from factors
+        global lane_change_thresholds, partial_lane_change_thresholds
+        lane_change_thresholds = safe_lane_change_distances(224, 1.45)
+        partial_lane_change_thresholds = safe_lane_change_distances(224, 1.15)
+
         self.driving_state = DrivingState.DRIVING
-        self.lane_change_target = None  # "left" or "right"
+        self.lane_change_target = None
+        self.last_measurement = {}
 
     def _update_max_speed(self, state):
-        """
-        Gradually increase target max speed as time progresses.
-        Tries to use state's dt if available, otherwise assumes ~0.1s per tick.
-        """
-
         self.elapsed_time = state.elapsed_ticks
-        target = self.base_max_speed + self.speed_ramp_rate * self.elapsed_time
-        self.max_speed = target
-        print(f"Max speed: {self.max_speed}")
+        self.max_speed = self.base_max_speed + self.speed_ramp_rate * self.elapsed_time
+        logger.debug(f"Max speed: {self.max_speed}")
 
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
         self._update_max_speed(state)
@@ -283,13 +294,13 @@ class HeuristicAgent:
             ttc = back / rel_speed
 
         # If TTC is healthy, no need to do anything fancy.
-        if ttc > SAFETY_TTC:
+        if ttc > self.safety_ttc:
             # Gentle accelerate toward max_speed but no panic
             dv = min(self.max_speed - ego_speed, rel_speed)
             if dv <= 0:
                 return ["NOTHING"]
             steps = min(
-                MAX_ACCEL_ACTIONS_PER_DECISION, max(10, int(dv / ACCEL_PER_ACTION))
+                self.max_accel_actions, max(10, int(dv / self.accel_per_action))
             )
             logger.info(
                 f"Rear closing but TTC OK ({ttc:.2f}s). Accelerating {steps} to reduce delta."
@@ -297,21 +308,21 @@ class HeuristicAgent:
             return ["ACCELERATE"] * steps
 
         # TTC is short: can we match speed before collision window closes?
-        time_available = max(0.0, ttc - SAFETY_MARGIN)
-        dv_needed = max(0.0, (other_speed - ego_speed) - MATCH_TOL)
+        time_available = max(0.0, ttc - self.safety_margin)
+        dv_needed = max(0.0, (other_speed - ego_speed) - self.match_tol)
 
         if dv_needed <= 0:
             # Already close enough in speed; hold or minor accel
             return ["NOTHING"] * 10
 
         # How many accelerate actions needed to close dv_needed?
-        steps_needed = math.ceil(dv_needed / ACCEL_PER_ACTION)
+        steps_needed = math.ceil(dv_needed / self.accel_per_action)
 
         # How many steps can we apply within time_available?
         steps_possible = int(time_available / TICK_SECONDS)
 
         if steps_needed <= steps_possible:
-            steps = min(steps_needed, MAX_ACCEL_ACTIONS_PER_DECISION)
+            steps = min(steps_needed, self.max_accel_actions)
             logger.info(
                 f"Rear threat TTC {ttc:.2f}s: matching speed in-lane with {steps} ACCELERATE."
             )
@@ -319,7 +330,7 @@ class HeuristicAgent:
 
         # Not feasible to match speed in time (or would exceed max_speed): caller should change lanes
         logger.info(
-            f"Rear threat TTC {ttc:.2f}s: cannot match speed in time (need {steps_needed}, possible {steps_possible}, exceeds_max={exceeds_max})."
+            f"Rear threat TTC {ttc:.2f}s: cannot match speed in time (need {steps_needed}, possible {steps_possible})."
         )
         return None
 
