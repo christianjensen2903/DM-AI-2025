@@ -310,11 +310,7 @@ class HeuristicAgent:
         # How many steps can we apply within time_available?
         steps_possible = int(time_available / TICK_SECONDS)
 
-        # Also cannot exceed our max_speed target
-        final_speed_if_matched = ego_speed + steps_needed * ACCEL_PER_ACTION
-        exceeds_max = final_speed_if_matched > self.max_speed + 1e-6
-
-        if steps_needed <= steps_possible and not exceeds_max:
+        if steps_needed <= steps_possible:
             steps = min(steps_needed, MAX_ACCEL_ACTIONS_PER_DECISION)
             logger.info(
                 f"Rear threat TTC {ttc:.2f}s: matching speed in-lane with {steps} ACCELERATE."
