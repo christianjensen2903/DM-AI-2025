@@ -117,58 +117,48 @@ def query_llm(prompt: str) -> str:
     return content.strip()
 
 
-def parse_llm_response(llm_response: str, top_snippets: List[Dict]) -> tuple[bool, int]:
-    """Parse LLM response to extract truth value and predicted topic"""
-    # Clean the response - remove markdown code blocks if present
-    cleaned_response = llm_response.strip()
+import json
+import re
+from typing import List, Dict, Tuple
 
-    # Remove markdown code block markers if present
-    if cleaned_response.startswith("```json"):
-        cleaned_response = cleaned_response[7:]  # Remove "```json"
-    if cleaned_response.startswith("```"):
-        cleaned_response = cleaned_response[3:]  # Remove "```"
-    if cleaned_response.endswith("```"):
-        cleaned_response = cleaned_response[:-3]  # Remove trailing "```"
 
-    cleaned_response = cleaned_response.strip()
+def parse_llm_response(llm_response: str, top_snippets: List[Dict]) -> Tuple[bool, int]:
+    """Parse LLM response to extract truth value and predicted topic."""
+    # Regex to find the first JSON object in the response
+    match = re.search(r"\{.*?\}", llm_response, re.DOTALL)
+    if not match:
+        print("No JSON object found in LLM response.")
+        fallback_topic = top_snippets[0]["topic_id"] if top_snippets else -1
+        return False, fallback_topic
+
+    cleaned_response = match.group(0)
 
     try:
         response = json.loads(cleaned_response)
         statement_is_true = response["is_true"]
         statement_topic = response["topic_id"]
 
-        # Handle topic if it's a string instead of an integer
+        # Ensure topic_id is an integer
         try:
             statement_topic = int(statement_topic)
         except ValueError:
             print(f"Converting string topic '{statement_topic}' to ID...")
-
             if statement_topic in topic2id:
                 statement_topic = topic2id[statement_topic]
                 print(f"Found topic ID: {statement_topic}")
             else:
                 print(
-                    f"Warning: Topic '{statement_topic}' not found in topics.json, using highest ranked snippet topic"
+                    f"Warning: Topic '{statement_topic}' not found in topics.json, "
+                    "using highest ranked snippet topic"
                 )
-                # Use the topic of the highest ranked snippet instead of -1
-                if top_snippets and len(top_snippets) > 0:
-                    statement_topic = top_snippets[0]["topic_id"]
-                    print(f"Using highest ranked snippet topic: {statement_topic}")
-                else:
-                    statement_topic = -1
+                statement_topic = top_snippets[0]["topic_id"] if top_snippets else -1
 
         return statement_is_true, statement_topic
+
     except Exception as e:
-        print(f"Error parsing LLM response: {e}")
-        print(f"Original LLM response: {llm_response}")
-        print(f"Cleaned response: {cleaned_response}")
-
-        # Use the topic of the highest ranked snippet instead of -1
-        fallback_topic = -1
-        if top_snippets and len(top_snippets) > 0:
-            fallback_topic = top_snippets[0]["topic_id"]
-            print(f"Using highest ranked snippet topic as fallback: {fallback_topic}")
-
+        print(f"Error parsing JSON: {e}")
+        print(f"Extracted JSON: {cleaned_response}")
+        fallback_topic = top_snippets[0]["topic_id"] if top_snippets else -1
         return False, fallback_topic
 
 
