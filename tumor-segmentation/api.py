@@ -24,14 +24,23 @@ class PredictResponseDto(BaseModel):
     img: str
 
 
-# 1 = 0.73
-# 2 = 0.727
-# 3 = 0.720
+# 2 = 0.75 (Unet++ + EfficientNet B5)
+# 4 = 0.72 (Deeplabv3+ + Resnet50)
 
 app = FastAPI()
-ckpt_path = "1.ckpt"
-model = TumorModel.load_from_checkpoint(ckpt_path)
-model.eval()
+
+# Check for GPU availability
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+# Load both models for ensemble
+model_2 = TumorModel.load_from_checkpoint("5.ckpt")
+model_2.to(device)
+model_2.eval()
+
+# model_4 = TumorModel.load_from_checkpoint("4.ckpt")
+# model_4.to(device)
+# model_4.eval()
 
 
 @app.post("/predict", response_model=PredictResponseDto)
@@ -45,7 +54,15 @@ def predict_endpoint(request: PredictRequestDto):
     img = pad_image_to_size(img, DESIRED_HEIGHT, DESIRED_WIDTH)
     img = torch.tensor(img, dtype=torch.float32) / 255
     img = img.unsqueeze(0).unsqueeze(0)
-    logits_mask = model.forward(img)
+    img = img.to(device)
+
+    # Get logits from both models
+    with torch.no_grad():
+        logits_mask = model_2.forward(img)
+        # logits_mask_4 = model_4.forward(img)
+
+        # # Average the logits from both models
+        # logits_mask = (logits_mask_2 + logits_mask_4) / 2.0
 
     prob_mask = logits_mask.sigmoid()
 
@@ -53,7 +70,7 @@ def predict_endpoint(request: PredictRequestDto):
     pred_mask = pred_mask.squeeze(0)
     pred_mask = reverse_image_transform(pred_mask, original_width, original_height)
     pred_mask = pred_mask.permute(1, 2, 0)
-    pred_mask = pred_mask.numpy()
+    pred_mask = pred_mask.cpu().numpy()
     # Validate segmentation format
     validate_segmentation(original_img, pred_mask)
     # Encode the segmentation array to a str
