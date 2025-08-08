@@ -63,8 +63,9 @@ def safe_lane_change_distances(
 
 # lane_change_thresholds = safe_lane_change_distances(224, 1.45)
 same_lane_thresholds = safe_lane_change_distances(100)
-short_lane_threshold = safe_lane_change_distances(230)
+short_lane_threshold = safe_lane_change_distances(300)
 long_lane_threshold = safe_lane_change_distances(500)
+
 
 left_side_keys = [
     "left_side",
@@ -104,21 +105,16 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
     left_side_min = min(sensors[k] or 1000 for k in left_side_keys)
     right_side_min = min(sensors[k] or 1000 for k in right_side_keys)
 
-    logger.info(
-        f"Side clearances - left: {left_side_min:.1f}, right: {right_side_min:.1f}"
-    )
     if left_side_min < right_side_min:
-        return "left"
-    else:
         return "right"
+    else:
+        return "left"
 
 
 class AgentState(Enum):
     ACCELERATING = "accelerating"
     SWEEPING = "sweeping"
-    DONE = "done"
     MEASURING_SPEED = "measuring_speed"
-    MATCHING_SPEED = "matching_speed"
 
 
 class SweepingAgent:
@@ -126,28 +122,29 @@ class SweepingAgent:
         self.state = AgentState.ACCELERATING
         self.position = 6
         self.off_center_amount = 29
+        self.sweep_amount = 24
         self.center_opposite_amount = 35
         self.last_measurement: dict[str, float | None] = {}
 
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
-        logger.info(f"Current state: {self.state.value}, position: {self.position}")
         if self.state == AgentState.ACCELERATING:
             return self._accelerate(state)
         elif self.state == AgentState.SWEEPING:
             return self._sweep(state)
+        elif self.state == AgentState.MEASURING_SPEED:
+            return self._match_speed(state)
         else:
-            logger.info("In default state, doing nothing")
-            return ["NOTHING"] * 50
+            raise ValueError(f"Invalid state: {self.state}")
 
     def _sweep(self, state: RaceCarPredictRequestDto) -> list[str]:
         logger.info(f"Sweeping at position {self.position}")
 
         if state.sensors["back"]:
             if self.position % 3 == 1:
-                logger.info("Back sensor detected, turning right")
+                logger.info("Back sensor detected, Accelerating")
                 return turn_right(self.off_center_amount) + self._accelerate(state)
             elif self.position % 3 == 2:
-                logger.info("Back sensor detected, turning left")
+                logger.info("Back sensor detected, Accelerating")
                 return turn_left(self.off_center_amount) + self._accelerate(state)
             else:
                 logger.info("Back sensor detected, continuing acceleration")
@@ -155,11 +152,13 @@ class SweepingAgent:
 
         if state.sensors["front"]:
             safest_side = find_safest_side(state.sensors)
+            logger.info(f"Safest side: {safest_side}")
+
             if self.position == 10 and safest_side == "left":
                 if check_side_safety(
                     state.sensors, left_side_keys, short_lane_threshold
                 ):
-                    self.state = AgentState.ACCELERATING
+                    self.position += 1
                     return turn_left(self.center_opposite_amount)
                 else:
                     return self._match_speed(state)
@@ -167,30 +166,61 @@ class SweepingAgent:
                 if check_side_safety(
                     state.sensors, right_side_keys, short_lane_threshold
                 ):
-                    return turn_right(self.off_center_amount) + self._accelerate(state)
+                    self.position -= 2
+                    return turn_right(self.off_center_amount)
                 else:
                     return self._match_speed(state)
             elif self.position == 11 and safest_side == "left":
+                self.position += 1
                 return turn_left(self.off_center_amount) + self._accelerate(state)
-            elif self.position == 12 and safest_side == "right":
+            elif self.position == 1 and safest_side == "right":
+                self.position -= 1
                 return turn_right(self.off_center_amount) + self._accelerate(state)
             else:
                 keys = left_side_keys if safest_side == "left" else right_side_keys
                 if check_side_safety(state.sensors, keys, long_lane_threshold):
-                    return turn_left(
-                        self.off_center_amount * 2 + self.center_opposite_amount * 2
-                    ) + self._accelerate(state)
+                    logger.info("Long lane threshold met, changing lanes")
+                    self.position += 6
+                    if safest_side == "left":
+                        return turn_left(
+                            self.off_center_amount * 2 + self.center_opposite_amount * 2
+                        )
+                    else:
+                        return turn_right(
+                            self.off_center_amount * 2 + self.center_opposite_amount * 2
+                        )
                 elif check_side_safety(state.sensors, keys, short_lane_threshold):
-                    return turn_left(
-                        self.off_center_amount + self.center_opposite_amount
-                    ) + self._accelerate(state)
+                    logger.info("Short lane threshold met, changing lanes")
+                    self.position += 3
+                    if safest_side == "left":
+                        return turn_left(
+                            self.off_center_amount + self.center_opposite_amount
+                        )
+                    else:
+                        return turn_right(
+                            self.off_center_amount + self.center_opposite_amount
+                        )
                 else:
-                    return self._match_speed(state)
+                    self.state = AgentState.ACCELERATING
+                    if self.position % 3 == 1:
+                        self.position += 2
+                        return self._accelerate(state) + turn_left(
+                            self.center_opposite_amount
+                        )
+                    elif self.position % 3 == 2:
+                        self.position -= 2
+                        return self._accelerate(state) + turn_right(
+                            self.center_opposite_amount
+                        )
 
-        if state.sensors["front"]:
+        if self.position % 3 == 1:
+            self.position += 1
+            return turn_left(self.sweep_amount)
+        elif self.position % 3 == 2:
+            self.position -= 1
+            return turn_right(self.sweep_amount)
+        else:
             return self._match_speed(state)
-
-        return turn_right(self.off_center_amount)
 
     def _match_speed(self, state: RaceCarPredictRequestDto) -> list[str]:
         if self.state == AgentState.MEASURING_SPEED:
@@ -263,20 +293,27 @@ class SweepingAgent:
                 max_actions - needed_steps
             )
 
-    def _start_sweeping(self, state: RaceCarPredictRequestDto) -> list[str]:
-        logger.info(f"Starting sweep pattern at position {self.position}")
-        self.state = AgentState.SWEEPING
-        # Seek to just before the line
-        self.position -= 1
-        return ["STEER_RIGHT"] * 29 + ["STEER_LEFT"] * 29
-
     def _accelerate(self, state: RaceCarPredictRequestDto) -> list[str]:
         self.state = AgentState.ACCELERATING
         logger.info(f"Accelerating at speed {state.velocity['x']:.1f}")
 
         # If no back anymore
         if not state.sensors["back"]:
-            logger.info("No back sensor detected, starting sweep pattern")
-            return self._start_sweeping(state)
+            safest_side = find_safest_side(state.sensors)
+
+            if safest_side == "left":
+                if check_side_safety(
+                    state.sensors, left_side_keys, short_lane_threshold
+                ):
+                    self.state = AgentState.SWEEPING
+                    self.position += 1
+                    return turn_left(self.off_center_amount)
+            else:
+                if check_side_safety(
+                    state.sensors, right_side_keys, short_lane_threshold
+                ):
+                    self.state = AgentState.SWEEPING
+                    self.position -= 1
+                    return turn_right(self.off_center_amount)
 
         return ["ACCELERATE"] * 50
