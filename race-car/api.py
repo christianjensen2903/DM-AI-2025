@@ -3,7 +3,8 @@ import uvicorn
 import datetime
 from fastapi import Body, FastAPI
 from dtos import RaceCarPredictRequestDto, RaceCarPredictResponseDto
-from pyngrok import ngrok
+
+# from pyngrok import ngrok
 from heuristic import HeuristicAgent
 
 app = FastAPI()
@@ -37,12 +38,12 @@ HOST = "0.0.0.0"
 PORT = 9052
 
 # Setup ngrok tunnel
-ngrok_tunnel = ngrok.connect(PORT)
-print()
-print()
-print(ngrok_tunnel.public_url)
-print()
-print()
+# ngrok_tunnel = ngrok.connect(PORT)
+# print()
+# print()
+# print(ngrok_tunnel.public_url)
+# print()
+# print()
 
 if __name__ == "__main__":
 
