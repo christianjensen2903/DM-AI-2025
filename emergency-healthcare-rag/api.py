@@ -65,23 +65,11 @@ def format_prompt(statement: str, snippets: List[Dict]) -> str:
 
     prompt = """
 You are a strict medical verifier.
-
-Task:
-Given ONE statement and up to N retrieved SNIPPETS (each has: index, topic_name, topic_id, content),
-determine:
-  1) Is the statement directly supported by at least ONE snippet, using EXACT match of facts, numbers, ranges, units, and direction/sign? (No outside knowledge. No inference.)
-  2) Which ONE topic_id from the shown snippets best matches the statement’s subject, prioritizing the snippet(s) you used for support/contradiction.
-
-Rules:
-- Consider ONLY the provided snippets.
-- "True" only if a snippet literally contains the claim (numbers/units/signs must match).
-- If any snippet explicitly contradicts the claim, it's false.
-- Mixed/ambiguous/partial overlap -> false.
-- When multiple snippets discuss the same content under different topics, choose the topic_id of the snippet that most precisely matches the statement.
-- IMPORTANT: topic_id MUST be an integer. NEVER return null or a string.
+Your task is to determine whether the following medical statement is supported by the evidence provided and choose the most relevant topic_id from the snippets.
 
 Output JSON ONLY (no prose), exactly this schema:
 {{"is_true": true/false, "topic_id": <topic_id>}}
+IMPORTANT: topic_id MUST be an integer. NEVER return null or a string.
 
 Statement:
 {statement}
