@@ -64,18 +64,19 @@ def index():
 def format_prompt(statement: str, snippets: List[Dict]) -> str:
 
     prompt = """
-You are a strict medical verifier.
-Your task is to determine whether the following medical statement is supported by the evidence provided and choose the most relevant topic_id from the snippets.
-
-Output JSON ONLY (no prose), exactly this schema:
-{{"is_true": true/false, "topic_id": <topic_id>}}
-IMPORTANT: topic_id MUST be an integer. NEVER return null or a string.
+You are a helpful medical assistant. Your task is to determine whether the following medical statement is supported by the evidence provided and predict the most relevant medical topic.
 
 Statement:
 {statement}
 
 Retrieved Snippets:
 {snippets}
+
+Based only on the above snippets, please provide your response in the following format and no other text:
+{{"is_true": true/false, "topic_id": <topic_id>}}
+
+Determine if the statement is true or false based on the evidence, and identify the most relevant medical topic.
+To be correct the exact information has to be present in one of the snippets.
 """
     snippets_text = "\n\n".join(
         f"Snippet {i+1} (Topic: {s['topic_name']}, Topic ID: {s['topic_id']}):\n{s['content']}"
