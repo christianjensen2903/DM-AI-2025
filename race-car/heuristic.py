@@ -159,14 +159,29 @@ class DrivingState(Enum):
 
 class HeuristicAgent:
     def __init__(self):
-        self.has_braked = False
         self.last_measurement: dict[str, float | None] = {}
-        self.max_speed = 32.5
+        # --- speed ramp config ---
+        self.base_max_speed = 20.0  # starting target (m/s)
+        self.speed_ramp_rate = 0.01
+        self.elapsed_time = 0.0  # internal clock
+        self.max_speed = self.base_max_speed
+        # --------------------------
         self.driving_state = DrivingState.DRIVING
-        # Lane change state tracking
         self.lane_change_target = None  # "left" or "right"
 
+    def _update_max_speed(self, state):
+        """
+        Gradually increase target max speed as time progresses.
+        Tries to use state's dt if available, otherwise assumes ~0.1s per tick.
+        """
+
+        self.elapsed_time = state.elapsed_ticks
+        target = self.base_max_speed + self.speed_ramp_rate * self.elapsed_time
+        self.max_speed = target
+        print(f"Max speed: {self.max_speed}")
+
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
+        self._update_max_speed(state)
 
         front = state.sensors.get("front")
         prev_front = self.last_measurement.get("front")
