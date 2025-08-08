@@ -174,7 +174,6 @@ class HeuristicAgent:
         self.ticks = 0
         self.base_target_speed = 10.0  # starting target speed (m/s)
         self.ramp_per_tick = 0.25
-        self.enable_speed_matching = True  # set False if you want “always go faster”
 
     def _current_target_speed(self) -> float:
         # Linear ramp: base + slope * ticks, but never above hard cap
@@ -203,17 +202,7 @@ class HeuristicAgent:
         elif self.driving_state == DrivingState.MEASURING:
 
             if front and prev_front:
-                # keep rare high-speed match case
-                front_car_speed = self._estimate_car_speed(
-                    front, prev_front, state.velocity["x"], "front"
-                )
-                if self._should_match_speed(front_car_speed, front):
-                    self.driving_state = DrivingState.DRIVING
-                    return self._calculate_speed_matching_actions(
-                        state.velocity["x"], front_car_speed
-                    )
 
-                # NEW: single-shot lane change
                 steps, side = self._brake_steps_for_safe_lane_change(
                     front, prev_front, state.velocity["x"], state.sensors
                 )
@@ -238,18 +227,9 @@ class HeuristicAgent:
                 self.last_measurement = state.sensors.copy()
                 return ["DECELERATE"]
             elif back and prev_back:
-                # Rare case: match speed with a fast rear car if it's far enough (your existing rule)
                 back_car_speed = self._estimate_car_speed(
                     back, prev_back, state.velocity["x"], "back"
                 )
-                if self._should_match_speed(back_car_speed, back):
-                    self.driving_state = DrivingState.DRIVING
-                    logger.info(
-                        f"Speed matching with back car during measuring: target speed {back_car_speed:.1f}"
-                    )
-                    return self._calculate_speed_matching_actions(
-                        state.velocity["x"], back_car_speed
-                    )
 
                 # NEW: one-shot lane change (pre-accelerate just enough, then commit)
                 steps, side = self._accelerate_steps_for_safe_lane_change(
@@ -365,41 +345,6 @@ class HeuristicAgent:
 
         return max(0.0, other_car_speed)  # Speed can't be negative
 
-    def _should_match_speed(
-        self, estimated_speed: float, current_distance: float
-    ) -> bool:
-        """
-        Determine if we should match speed with a nearby car.
-        Returns True if the other car is close enough and at a significant speed.
-        """
-        if current_distance < self.speed_matching_distance:
-            return False
-
-        # Check if the other car's speed is significant (above threshold percentage of max speed)
-        return estimated_speed >= self.max_speed * 0.9
-
-    def _calculate_speed_matching_actions(
-        self, ego_speed: float, target_speed: float, max_actions: int = 20
-    ) -> list[str]:
-        """
-        Calculate actions needed to match the speed of another car.
-        """
-        speed_diff = target_speed - ego_speed
-
-        if abs(speed_diff) < 0.1:  # Already close enough
-            return ["NOTHING"] * max_actions
-
-        if speed_diff > 0:  # Need to accelerate
-            needed_steps = min(max_actions, int(speed_diff // 0.1))
-            return ["ACCELERATE"] * needed_steps + ["NOTHING"] * (
-                max_actions - needed_steps
-            )
-        else:  # Need to decelerate
-            needed_steps = min(max_actions, int(abs(speed_diff) // 0.1))
-            return ["DECELERATE"] * needed_steps + ["NOTHING"] * (
-                max_actions - needed_steps
-            )
-
     def _brake_steps_for_safe_lane_change(
         self,
         front: float,
@@ -433,29 +378,6 @@ class HeuristicAgent:
 
         target = self._current_target_speed()  # << use ramping target
         print(f"Target speed: {target}")
-
-        # OPTIONAL: only attempt speed matching if enabled
-        if self.enable_speed_matching:
-            front = state.sensors.get("front")
-            back = state.sensors.get("back")
-            prev_front = self.last_measurement.get("front")
-            prev_back = self.last_measurement.get("back")
-            if front and prev_front:
-                front_car_speed = self._estimate_car_speed(
-                    front, prev_front, ego_speed, "front"
-                )
-                if self._should_match_speed(front_car_speed, front):
-                    return self._calculate_speed_matching_actions(
-                        ego_speed, front_car_speed, max_actions
-                    )
-            if back and prev_back:
-                back_car_speed = self._estimate_car_speed(
-                    back, prev_back, ego_speed, "back"
-                )
-                if self._should_match_speed(back_car_speed, back):
-                    return self._calculate_speed_matching_actions(
-                        ego_speed, back_car_speed, max_actions
-                    )
 
         # Normal acceleration towards the *ramping* target
         dv = target - ego_speed
