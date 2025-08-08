@@ -85,6 +85,7 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         "left_side_back",
         "left_side_front",
         "back_left_back",
+        "front_left_front",
         "left_back",
         "left_front",
     ]
@@ -93,6 +94,7 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         "right_side_back",
         "right_side_front",
         "back_right_back",
+        "front_right_front",
         "right_back",
         "right_front",
     ]
