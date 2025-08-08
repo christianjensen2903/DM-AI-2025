@@ -86,6 +86,7 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         "back_left_back",
         "left_back",
         "left_front",
+        "front_left_front",
     ]
     right_side_keys = [
         "right_side",
@@ -94,6 +95,7 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         "back_right_back",
         "right_back",
         "right_front",
+        "front_right_front",
     ]
 
     def check_side_safety(side_keys):
@@ -103,6 +105,7 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
 
         for k in all_sensors:
             v = sensors.get(k, 1000) or 1000
+
             threshold = lane_change_thresholds.get(k, float("inf"))
             is_safe = v >= threshold
             sensor_status[k] = (v, threshold, is_safe)
@@ -168,7 +171,17 @@ class HeuristicAgent:
         self.HEADWAY_SEC = 2.0  # ~2-second rule
         self.MIN_HEADWAY = 20.0  # meters
 
+        self.ticks = 0
+        self.base_target_speed = 10.0  # starting target speed (m/s)
+        self.ramp_per_tick = 0.25
+        self.enable_speed_matching = True  # set False if you want “always go faster”
+
+    def _current_target_speed(self) -> float:
+        # Linear ramp: base + slope * ticks, but never above hard cap
+        return self.base_target_speed + self.ramp_per_tick * self.ticks
+
     def decide(self, state: RaceCarPredictRequestDto) -> list[str]:
+        self.ticks += 1
 
         front = state.sensors.get("front")
         prev_front = self.last_measurement.get("front")
@@ -256,7 +269,7 @@ class HeuristicAgent:
                 # If the rear car is closing (dv>0) and we can still speed up, nudge forward.
                 self.driving_state = DrivingState.DRIVING
                 dv = prev_back - back
-                if dv > 0 and state.velocity["x"] < self.max_speed:
+                if dv > 0:
                     nudge = max(
                         1,
                         min(
@@ -319,7 +332,7 @@ class HeuristicAgent:
             return 0, side
 
         # Increase ego speed so relative closing <= allowed
-        target_ego_speed = min(self.max_speed, back_speed - max_allowed_rel)
+        target_ego_speed = back_speed - max_allowed_rel
         delta_v = max(0.0, target_ego_speed - ego_speed)
         steps = math.ceil(delta_v / self.DECEL_PER_STEP)  # same 0.1 step granularity
         return steps, side
@@ -414,65 +427,50 @@ class HeuristicAgent:
 
     def _drive(self, state: RaceCarPredictRequestDto) -> list[str]:
         ego_speed = state.velocity["x"]
+        print(f"Ego speed: {ego_speed}")
         max_actions = 20
         min_actions = 10
-        threshold_speed = self.max_speed / 2  # 10 m/s if max_speed is 20
 
-        # Check for speed matching opportunities with nearby cars
-        front = state.sensors.get("front")
-        back = state.sensors.get("back")
-        prev_front = self.last_measurement.get("front")
-        prev_back = self.last_measurement.get("back")
+        target = self._current_target_speed()  # << use ramping target
+        print(f"Target speed: {target}")
 
-        # Check front car for speed matching
-        if front and prev_front:
-            front_car_speed = self._estimate_car_speed(
-                front, prev_front, ego_speed, "front"
-            )
-            if self._should_match_speed(front_car_speed, front):
-                logger.info(
-                    f"Speed matching with front car: target speed {front_car_speed:.1f}, ego speed {ego_speed:.1f}"
+        # OPTIONAL: only attempt speed matching if enabled
+        if self.enable_speed_matching:
+            front = state.sensors.get("front")
+            back = state.sensors.get("back")
+            prev_front = self.last_measurement.get("front")
+            prev_back = self.last_measurement.get("back")
+            if front and prev_front:
+                front_car_speed = self._estimate_car_speed(
+                    front, prev_front, ego_speed, "front"
                 )
-                return self._calculate_speed_matching_actions(
-                    ego_speed, front_car_speed, max_actions
+                if self._should_match_speed(front_car_speed, front):
+                    return self._calculate_speed_matching_actions(
+                        ego_speed, front_car_speed, max_actions
+                    )
+            if back and prev_back:
+                back_car_speed = self._estimate_car_speed(
+                    back, prev_back, ego_speed, "back"
                 )
+                if self._should_match_speed(back_car_speed, back):
+                    return self._calculate_speed_matching_actions(
+                        ego_speed, back_car_speed, max_actions
+                    )
 
-        # Check back car for speed matching
-        if back and prev_back:
-            back_car_speed = self._estimate_car_speed(
-                back, prev_back, ego_speed, "back"
-            )
-            if self._should_match_speed(back_car_speed, back):
-                logger.info(
-                    f"Speed matching with back car: target speed {back_car_speed:.1f}, ego speed {ego_speed:.1f}"
-                )
-                return self._calculate_speed_matching_actions(
-                    ego_speed, back_car_speed, max_actions
-                )
-
-        # Normal acceleration logic if no speed matching is needed
-        dv = self.max_speed - ego_speed
-        needed_steps = int(dv // 0.1)
-
-        # 0) If you're so close you need <1 tick, just stop accelerating.
-        if dv <= 0.1:
+        # Normal acceleration towards the *ramping* target
+        dv = target - ego_speed
+        if dv <= 0.1:  # close enough for this tick
             return ["NOTHING"] * max_actions
 
-        # 1) Full throttle up to threshold
+        threshold_speed = target / 2  # keep your tapering behavior relative to target
+        needed_steps = int(max(0, dv) // 0.1)
+
         if ego_speed < threshold_speed:
-            logger.info(f"Accelerating by: {max_actions}")
             return ["ACCELERATE"] * max_actions
 
-        # 2) Beyond threshold: compute linear taper fraction
-        dv_range = self.max_speed - threshold_speed
-        proportion = dv / dv_range  # goes 1→0 as speed goes 10→20
-
-        # 3) Ceil so any fraction gives ≥1, then cap by needed_steps
+        dv_range = max(0.1, target - threshold_speed)
+        proportion = max(0.0, min(1.0, dv / dv_range))
         raw = max_actions * proportion
         taper_steps = min(needed_steps, math.ceil(raw))
-
-        # 4) Floor to at least min_actions
         accelerate_amount = max(taper_steps, min_actions)
-
-        logger.info(f"Accelerating by: {accelerate_amount}")
         return ["ACCELERATE"] * accelerate_amount
