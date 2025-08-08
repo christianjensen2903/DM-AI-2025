@@ -78,8 +78,7 @@ Rules:
 - If any snippet explicitly contradicts the claim, it's false.
 - Mixed/ambiguous/partial overlap -> false.
 - When multiple snippets discuss the same content under different topics, choose the topic_id of the snippet that most precisely matches the statement.
-- Be conservative: prefer False if the match is not literal.
-- topic_id MUST be an integer. NEVER return null or a string.
+- IMPORTANT: topic_id MUST be an integer. NEVER return null or a string.
 
 Output JSON ONLY (no prose), exactly this schema:
 {{"is_true": true/false, "topic_id": <topic_id>}}
@@ -118,7 +117,7 @@ def query_llm(prompt: str) -> str:
     return content.strip()
 
 
-def parse_llm_response(llm_response: str) -> tuple[bool, int]:
+def parse_llm_response(llm_response: str, top_snippets: List[Dict]) -> tuple[bool, int]:
     """Parse LLM response to extract truth value and predicted topic"""
     # Clean the response - remove markdown code blocks if present
     cleaned_response = llm_response.strip()
@@ -149,16 +148,28 @@ def parse_llm_response(llm_response: str) -> tuple[bool, int]:
                 print(f"Found topic ID: {statement_topic}")
             else:
                 print(
-                    f"Warning: Topic '{statement_topic}' not found in topics.json, defaulting to -1"
+                    f"Warning: Topic '{statement_topic}' not found in topics.json, using highest ranked snippet topic"
                 )
-                statement_topic = -1
+                # Use the topic of the highest ranked snippet instead of -1
+                if top_snippets and len(top_snippets) > 0:
+                    statement_topic = top_snippets[0].metadata.get("topic_id", -1)
+                    print(f"Using highest ranked snippet topic: {statement_topic}")
+                else:
+                    statement_topic = -1
 
         return statement_is_true, statement_topic
     except Exception as e:
         print(f"Error parsing LLM response: {e}")
         print(f"Original LLM response: {llm_response}")
         print(f"Cleaned response: {cleaned_response}")
-        return False, -1
+
+        # Use the topic of the highest ranked snippet instead of -1
+        fallback_topic = -1
+        if top_snippets and len(top_snippets) > 0:
+            fallback_topic = top_snippets[0].metadata.get("topic_id", -1)
+            print(f"Using highest ranked snippet topic as fallback: {fallback_topic}")
+
+        return False, fallback_topic
 
 
 @app.post("/predict", response_model=MedicalStatementResponseDto)
@@ -186,7 +197,9 @@ def predict_llm_endpoint(request: LLMPredictionRequestDto):
     llm_response = query_llm(prompt)
 
     # Parse LLM response
-    statement_is_true, predicted_topic_id = parse_llm_response(llm_response)
+    statement_is_true, predicted_topic_id = parse_llm_response(
+        llm_response, top_snippets
+    )
 
     response = MedicalStatementResponseDto(
         statement_is_true=statement_is_true,
