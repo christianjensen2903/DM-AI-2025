@@ -157,6 +157,14 @@ class DrivingState(Enum):
     LANE_CHANGING = "lane_changing"
 
 
+TICK_SECONDS = 0.1  # approximate sim tick
+ACCEL_PER_ACTION = 0.1  # m/s gained per "ACCELERATE"
+SAFETY_TTC = 3.0  # seconds: start worrying below this TTC
+SAFETY_MARGIN = 0.5  # seconds margin for maneuver completion
+MATCH_TOL = 0.5  # m/s: "good enough" speed match tolerance
+MAX_ACCEL_ACTIONS_PER_DECISION = 50  # cap bursts
+
+
 class HeuristicAgent:
     def __init__(self):
         self.last_measurement: dict[str, float | None] = {}
@@ -219,11 +227,18 @@ class HeuristicAgent:
                 self.last_measurement = state.sensors.copy()
                 return ["DECELERATE"]
             elif back and prev_back:
-                self.driving_state = DrivingState.DRIVING
                 dv = prev_back - back
-                if dv > 0:  # Car is getting closer
+                if dv > 0:  # rear car approaching
+                    # Try to resolve by speed matching first
+                    match_actions = self._resolve_rear_threat(state, back, prev_back)
+                    if match_actions is not None:
+                        self.driving_state = DrivingState.DRIVING
+                        return match_actions
+                    # Not feasible to match -> lane change
+                    self.driving_state = DrivingState.LANE_CHANGING
                     return self._start_lane_change(state)
                 else:
+                    self.driving_state = DrivingState.DRIVING
                     return self._drive(state)
             elif back:
                 self.driving_state = DrivingState.MEASURING
@@ -239,6 +254,78 @@ class HeuristicAgent:
             return self._continue_lane_change(state)
 
         return ["NOTHING"]
+
+    def _resolve_rear_threat(
+        self, state: RaceCarPredictRequestDto, back: float, prev_back: float
+    ) -> list[str] | None:
+        """
+        If a rear car is approaching, try to match speed unless it's infeasible in time.
+        Returns an action list if we should *stay in lane* and accelerate to match.
+        Returns None if we should *not* try to match (caller should change lanes).
+        """
+
+        ego_speed = state.velocity["x"]
+        other_speed = self._estimate_car_speed(
+            current_distance=back,
+            prev_distance=prev_back,
+            ego_speed=ego_speed,
+            sensor_type="back",
+        )
+
+        rel_speed = other_speed - ego_speed  # >0 means rear car is closing
+        if rel_speed <= 0:
+            return ["NOTHING"]  # it's not actually a threat
+
+        # Time to collision
+        if back <= 0:
+            ttc = 0.0
+        else:
+            ttc = back / rel_speed
+
+        # If TTC is healthy, no need to do anything fancy.
+        if ttc > SAFETY_TTC:
+            # Gentle accelerate toward max_speed but no panic
+            dv = min(self.max_speed - ego_speed, rel_speed)
+            if dv <= 0:
+                return ["NOTHING"]
+            steps = min(
+                MAX_ACCEL_ACTIONS_PER_DECISION, max(10, int(dv / ACCEL_PER_ACTION))
+            )
+            logger.info(
+                f"Rear closing but TTC OK ({ttc:.2f}s). Accelerating {steps} to reduce delta."
+            )
+            return ["ACCELERATE"] * steps
+
+        # TTC is short: can we match speed before collision window closes?
+        time_available = max(0.0, ttc - SAFETY_MARGIN)
+        dv_needed = max(0.0, (other_speed - ego_speed) - MATCH_TOL)
+
+        if dv_needed <= 0:
+            # Already close enough in speed; hold or minor accel
+            return ["NOTHING"] * 10
+
+        # How many accelerate actions needed to close dv_needed?
+        steps_needed = math.ceil(dv_needed / ACCEL_PER_ACTION)
+
+        # How many steps can we apply within time_available?
+        steps_possible = int(time_available / TICK_SECONDS)
+
+        # Also cannot exceed our max_speed target
+        final_speed_if_matched = ego_speed + steps_needed * ACCEL_PER_ACTION
+        exceeds_max = final_speed_if_matched > self.max_speed + 1e-6
+
+        if steps_needed <= steps_possible and not exceeds_max:
+            steps = min(steps_needed, MAX_ACCEL_ACTIONS_PER_DECISION)
+            logger.info(
+                f"Rear threat TTC {ttc:.2f}s: matching speed in-lane with {steps} ACCELERATE."
+            )
+            return ["ACCELERATE"] * steps
+
+        # Not feasible to match speed in time (or would exceed max_speed): caller should change lanes
+        logger.info(
+            f"Rear threat TTC {ttc:.2f}s: cannot match speed in time (need {steps_needed}, possible {steps_possible}, exceeds_max={exceeds_max})."
+        )
+        return None
 
     def _estimate_car_speed(
         self,
