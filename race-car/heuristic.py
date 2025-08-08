@@ -71,14 +71,16 @@ def safe_lane_change_distances(
 lane_change_thresholds = safe_lane_change_distances(224, 1.45)
 
 
-def find_safest_side(sensors: dict[str, float | None]) -> str | None:
+def find_safest_side(
+    sensors: dict[str, float | None], required_quorum: int = 4
+) -> str | None:
     """
-    Returns "left" or "right" if that side has clearly more clearance,
+    Returns "left" or "right" if that side has enough laterally-relevant sensors clear,
     otherwise None.
-    min_gap: minimum required clearance on a side to consider it.
-    hysteresis: relative difference required to prefer one side over the other.
+
+    required_quorum: minimum number of lateral sensors on a side that must meet their
+                     individual thresholds to consider the side safe.
     """
-    # Side sensors (perpendicular to car direction) - safe at 600
     left_side_keys = [
         "left_side",
         "left_side_back",
@@ -98,37 +100,41 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         "front_right_front",
     ]
 
-    def check_side_safety(side_keys):
-        # Check all sensors for this side using individual thresholds
-        all_sensors = side_keys
-        sensor_status = {}
+    def evaluate_side(side_keys):
+        safe_count = 0
+        considered = []
+        min_measured = float("inf")
 
-        for k in all_sensors:
+        for k in side_keys:
             v = sensors.get(k, 1000) or 1000
-
             threshold = lane_change_thresholds.get(k, float("inf"))
+
+            # Skip non-lateral sensors (e.g., front/back facing where threshold is inf)
+            if not math.isfinite(threshold):
+                continue
+
             is_safe = v >= threshold
-            sensor_status[k] = (v, threshold, is_safe)
+            if is_safe:
+                safe_count += 1
+            considered.append((k, v, threshold, is_safe))
+            if v < min_measured:
+                min_measured = v
 
-        # Check if all sensors are safe
-        all_safe = all(status[2] for status in sensor_status.values())
+        # No lateral sensors considered? Then side can't be declared safe.
+        if not considered:
+            return False, float("-inf")
 
-        # Get minimum values for comparison
-        min_side = (
-            min(sensor_status[k][0] for k in side_keys) if side_keys else float("inf")
-        )
+        side_safe = safe_count >= required_quorum
+        return side_safe, min_measured
 
-        return all_safe, min_side
+    left_safe, left_min = evaluate_side(left_side_keys)
+    right_safe, right_min = evaluate_side(right_side_keys)
 
-    left_safe, left_min = check_side_safety(left_side_keys)
-    right_safe, right_min = check_side_safety(right_side_keys)
-
-    # Neither side is safe
     if not left_safe and not right_safe:
-        logger.info("Neither side is safe for lane change")
+        # Too chatty at INFO; reduce noise
+        logger.debug("Neither side is safe for lane change")
         return None
 
-    # Only one side is safe
     if left_safe and not right_safe:
         logger.info("Only left side is safe")
         return "left"
@@ -136,8 +142,7 @@ def find_safest_side(sensors: dict[str, float | None]) -> str | None:
         logger.info("Only right side is safe")
         return "right"
 
-    # Both sides are safe - prefer the one with more clearance
-    # Use the minimum of side and angled sensors for comparison
+    # Both sides safe → pick the one with more clearance (higher minimum reading)
     if left_min > right_min:
         logger.info(
             f"Both sides safe, preferring left (left: {left_min:.1f}, right: {right_min:.1f})"
