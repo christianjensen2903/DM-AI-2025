@@ -20,6 +20,12 @@ DESIRED_WIDTH = 416
 DESIRED_HEIGHT = 992
 
 
+def load_checkpoint_from_wandb(run_path, checkpoint_name, target_dir="checkpoints"):
+    os.makedirs(target_dir, exist_ok=True)
+    restored_path = wandb.restore(checkpoint_name, run_path=run_path, root=target_dir)
+    return restored_path.name  # local file path to checkpoint
+
+
 class DiceLossThresholdEarlyStopping(Callback):
     """Custom callback to stop training if validation dice loss is not below threshold after specified epochs"""
 
@@ -532,6 +538,13 @@ def train(
     )
     callbacks.append(dice_threshold_stopping)
 
+    if config.get("checkpoint_path"):
+        prev_ckpt = load_checkpoint_from_wandb(
+            config["checkpoint_path"], config["checkpoint_name"]
+        )
+    else:
+        prev_ckpt = None
+
     trainer = Trainer(
         max_epochs=config["max_epochs"],
         logger=logger,
@@ -553,7 +566,12 @@ def train(
         dice_weight=config.get("dice_weight", 0.5),
     )
 
-    trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    trainer.fit(
+        model,
+        train_dataloaders=train_loader,
+        val_dataloaders=val_loader,
+        ckpt_path=prev_ckpt,
+    )
 
     # Save the model after training is complete
     save_dir = "saved_models"
