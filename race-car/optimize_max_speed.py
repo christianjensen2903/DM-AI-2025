@@ -1,325 +1,304 @@
 #!/usr/bin/env python3
 """
-Optimize the max_speed parameter of HeuristicAgent by testing different values
-across multiple seeds and analyzing performance metrics.
+Hyperparameter tuner for HeuristicAgent (new API).
+
+It will:
+- Randomly sample candidate configs over sensible ranges
+- Evaluate each over a set of seeds
+- Keep the best K and do a small local refinement
+- Output JSON: tuner_detailed.json, tuner_summary.json
+- Print the top results
+
+Integration:
+1) If your old loop exists (src.game.core.initialize_game_state/game_loop),
+   this script will use it automatically.
+
+2) Otherwise, implement the two adapter functions below:
+   - adapter_reset(seed: int, agent: HeuristicAgent) -> None
+   - adapter_run() -> dict   # returns metrics: distance, crashed, ticks, elapsed_time_ms (required)
+                              # optionally: lane_change_aborts, ttc_violations, etc.
+
+Refactor note:
+- If you added __init__ parameters to HeuristicAgent matching the keys in CFG,
+  the script will pass them. If not, it will set attributes after construction.
 """
 
-import sys
-import os
-import pygame
-from statistics import mean, stdev
-from typing import Dict, List, Tuple
-import json
-from dataclasses import dataclass
+import os, sys, json, math, random, contextlib, io, time
+from statistics import mean
+from dataclasses import dataclass, asdict
 
-# Add the current directory to path for imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# --- Optional old engine support -------------------------------------------------
+HAVE_OLD_ENV = False
+try:
+    import pygame
+    import src.game.core as game_core
+    from src.game.core import initialize_game_state, game_loop
 
-import src.game.core as game_core
-from src.game.core import initialize_game_state, game_loop
-from heuristic import HeuristicAgent
+    HAVE_OLD_ENV = True
+except Exception:
+    HAVE_OLD_ENV = False
+
+# --- Your agent -----------------------------------------------------------------
+from heuristic import HeuristicAgent  # make sure this is your *new* agent
 
 
+# --- Adapter (NEW environment): fill these if you don't have old engine ----------
+def adapter_reset(seed: int, agent: HeuristicAgent) -> None:
+    """
+    TODO: Reset your current simulator/environment with the given seed and agent.
+    Example:
+        env.reset(seed=seed)
+        env.set_agent(agent)
+    """
+    raise NotImplementedError(
+        "Implement adapter_reset() if old engine isn't available."
+    )
+
+
+def adapter_run() -> dict:
+    """
+    TODO: Run the episode to completion and return a metrics dict.
+    REQUIRED keys:
+        - distance (float)
+        - crashed (bool)
+        - ticks (int)
+        - elapsed_time_ms (float)
+    OPTIONAL keys (if you can provide them):
+        - lane_change_aborts (int)
+        - ttc_violations (int)
+    """
+    raise NotImplementedError("Implement adapter_run() if old engine isn't available.")
+
+
+# --- Ranges to sample ------------------------------------------------------------
+def sample_config() -> dict:
+    """Random (mostly uniform) sampling of the key knobs."""
+    return dict(
+        base_max_speed=random.uniform(15.0, 35.0),
+        speed_ramp_rate=10 ** random.uniform(-2.7, -1.5),  # ~0.002–0.032 per tick
+        safety_ttc=random.uniform(1.8, 4.0),
+        safety_margin=random.uniform(0.2, 0.9),
+        match_tol=random.uniform(0.2, 1.2),
+        max_accel_actions=random.randint(20, 90),
+    )
+
+
+def jitter(base: dict) -> dict:
+    """Small local neighborhood around a promising config."""
+
+    def clip(v, lo, hi):
+        return max(lo, min(hi, v))
+
+    cfg = dict(base)
+    cfg["base_max_speed"] = clip(
+        base["base_max_speed"] + random.uniform(-2.5, 2.5), 10, 45
+    )
+    cfg["speed_ramp_rate"] = clip(
+        base["speed_ramp_rate"] * (1 + random.uniform(-0.4, 0.4)), 0.001, 0.06
+    )
+    cfg["safety_ttc"] = clip(base["safety_ttc"] + random.uniform(-0.4, 0.4), 1.2, 5.0)
+    cfg["safety_margin"] = clip(
+        base["safety_margin"] + random.uniform(-0.2, 0.2), 0.1, 1.5
+    )
+    cfg["match_tol"] = clip(base["match_tol"] + random.uniform(-0.3, 0.3), 0.1, 1.8)
+    cfg["max_accel_actions"] = clip(
+        base["max_accel_actions"] + random.randint(-10, 10), 10, 120
+    )
+    return cfg
+
+
+# --- Evaluation ------------------------------------------------------------------
 @dataclass
-class TestResult:
-    """Results from a single test run."""
-
-    max_speed: float
+class EpisodeResult:
     seed: int
     distance: float
     crashed: bool
-    elapsed_ticks: int
+    ticks: int
     elapsed_time_ms: float
-    avg_speed: float
+    extra: dict
 
 
-def run_single_test(max_speed: float, seed: int) -> TestResult:
-    """Run a single test with given max_speed and seed."""
-    # Clean up any existing pygame instance
+def _make_agent(cfg: dict) -> HeuristicAgent:
+    """Construct agent. If your class has __init__ params, pass them; else setattr."""
     try:
-        pygame.quit()
-    except:
-        pass
+        agent = HeuristicAgent(**cfg)  # works if you refactored __init__
+        return agent
+    except TypeError:
+        # Fallback: instantiate and set attributes
+        agent = HeuristicAgent()
+        for k, v in cfg.items():
+            if hasattr(agent, k):
+                setattr(agent, k, v)
+        return agent
 
-    # Initialize pygame (required for headless mode)
-    os.environ["SDL_VIDEODRIVER"] = "dummy"  # Use dummy video driver for headless
-    pygame.init()
 
-    try:
-        # Initialize game state
-        initialize_game_state(
-            api_url="http://localhost:8000",  # Not used since we use HeuristicAgent directly
-            seed_value=seed,
-            sensor_removal=0,
-        )
+def run_episode(seed: int, cfg: dict) -> EpisodeResult:
+    # Silence noisy sim prints
+    with contextlib.redirect_stdout(io.StringIO()):
+        if HAVE_OLD_ENV:
+            # headless pygame setup
+            try:
+                import pygame
 
-        # Check that STATE and agent are properly initialized
-        if game_core.STATE is None or game_core.STATE.agent is None:
-            raise Exception("STATE or agent not properly initialized")
+                os.environ["SDL_VIDEODRIVER"] = "dummy"
+                pygame.quit()
+                pygame.init()
+            except Exception:
+                pass
 
-        # Modify the agent's max_speed
-        game_core.STATE.agent.max_speed = max_speed
-
-        # Run the game loop (headless)
-        # Temporarily redirect stdout to suppress game over messages
-        import contextlib
-        import io
-
-        with contextlib.redirect_stdout(io.StringIO()):
-            game_loop(verbose=False, log_actions=False, log_path="")
-
-        # Calculate average speed
-        avg_speed = (
-            game_core.STATE.distance / max(game_core.STATE.ticks, 1)
-            if game_core.STATE.ticks > 0
-            else 0
-        )
-
-        result = TestResult(
-            max_speed=max_speed,
-            seed=seed,
-            distance=game_core.STATE.distance,
-            crashed=game_core.STATE.crashed,
-            elapsed_ticks=game_core.STATE.ticks,
-            elapsed_time_ms=game_core.STATE.elapsed_game_time,
-            avg_speed=avg_speed,
-        )
-
-        if game_core.STATE.distance < 10000:
-            print(
-                f"Seed {seed} achieved distance {game_core.STATE.distance:.1f} (under 10000)"
+            # initialize & plug agent
+            initialize_game_state(
+                api_url="http://localhost:8000", seed_value=seed, sensor_removal=0
             )
 
-        return result
+            if game_core.STATE is None:
+                raise RuntimeError("Game STATE not initialized")
+            game_core.STATE.agent = _make_agent(cfg)
 
-    except Exception as e:
-        print(f"Error in test (max_speed={max_speed}, seed={seed}): {e}")
-        return TestResult(
-            max_speed=max_speed,
-            seed=seed,
-            distance=0,
-            crashed=True,
-            elapsed_ticks=0,
-            elapsed_time_ms=0,
-            avg_speed=0,
-        )
-    finally:
-        pygame.quit()
+            # run loop
+            game_loop(verbose=False, log_actions=False, log_path="")
 
-
-def run_tests_for_speed(max_speed: float, seeds: List[int]) -> List[TestResult]:
-    """Run tests for a specific max_speed across multiple seeds."""
-    results = []
-
-    print(f"Testing max_speed={max_speed}")
-
-    for i, seed in enumerate(seeds):
-        if i % 10 == 0:
-            print(f"  Progress: {i+1}/{len(seeds)} seeds completed")
-
-        result = run_single_test(max_speed, seed)
-        results.append(result)
-
-    return results
-
-
-def analyze_results(results: List[TestResult]) -> Dict:
-    """Analyze test results and calculate statistics."""
-    if not results:
-        return {}
-
-    distances = [r.distance for r in results]
-    crash_rate = sum(1 for r in results if r.crashed) / len(results)
-    avg_speeds = [r.avg_speed for r in results]
-    completion_rates = [1 if not r.crashed else 0 for r in results]
-
-    # Calculate percentiles manually
-    def percentile(data, p):
-        """Calculate percentile without numpy"""
-        n = len(data)
-        if n == 0:
-            return 0
-        sorted_data = sorted(data)
-        index = p / 100.0 * (n - 1)
-        if index.is_integer():
-            return sorted_data[int(index)]
+            st = game_core.STATE
+            extra = {}
+            # Optionally pull more fields if your STATE has them
+            return EpisodeResult(
+                seed=seed,
+                distance=float(getattr(st, "distance", 0.0)),
+                crashed=bool(getattr(st, "crashed", False)),
+                ticks=int(getattr(st, "ticks", 0)),
+                elapsed_time_ms=float(getattr(st, "elapsed_game_time", 0.0)),
+                extra=extra,
+            )
         else:
-            lower = sorted_data[int(index)]
-            upper = sorted_data[int(index) + 1]
-            return lower + (upper - lower) * (index - int(index))
-
-    distance_percentiles = {
-        "p25": percentile(distances, 25),
-        "p50": percentile(distances, 50),  # median
-        "p75": percentile(distances, 75),
-        "p90": percentile(distances, 90),
-        "p95": percentile(distances, 95),
-    }
-
-    speed_percentiles = {
-        "p25": percentile(avg_speeds, 25),
-        "p50": percentile(avg_speeds, 50),
-        "p75": percentile(avg_speeds, 75),
-        "p90": percentile(avg_speeds, 90),
-        "p95": percentile(avg_speeds, 95),
-    }
-
-    analysis = {
-        "max_speed": results[0].max_speed,
-        "num_runs": len(results),
-        "distance": {
-            "mean": mean(distances),
-            "std": stdev(distances) if len(distances) > 1 else 0,
-            "min": min(distances),
-            "max": max(distances),
-            **{f"distance_{k}": v for k, v in distance_percentiles.items()},
-        },
-        "avg_speed": {
-            "mean": mean(avg_speeds),
-            "std": stdev(avg_speeds) if len(avg_speeds) > 1 else 0,
-            "min": min(avg_speeds),
-            "max": max(avg_speeds),
-            **{f"speed_{k}": v for k, v in speed_percentiles.items()},
-        },
-        "crash_rate": crash_rate,
-        "completion_rate": 1 - crash_rate,
-        "success_score": mean(distances) * (1 - crash_rate),  # Combined metric
-    }
-
-    return analysis
+            # Use your adapter
+            agent = _make_agent(cfg)
+            adapter_reset(seed, agent)
+            metrics = adapter_run()
+            required = ["distance", "crashed", "ticks", "elapsed_time_ms"]
+            for k in required:
+                if k not in metrics:
+                    raise KeyError(f"adapter_run must return key: '{k}'")
+            extra = {k: v for k, v in metrics.items() if k not in required}
+            return EpisodeResult(
+                seed=seed,
+                distance=float(metrics["distance"]),
+                crashed=bool(metrics["crashed"]),
+                ticks=int(metrics["ticks"]),
+                elapsed_time_ms=float(metrics["elapsed_time_ms"]),
+                extra=extra,
+            )
 
 
-def optimize_max_speed(
-    speed_range: Tuple[float, float] = (20, 50),
-    speed_step: float = 2.5,
-    num_seeds: int = 100,
-    seed_start: int = 1,
-) -> List[Dict]:
-    """
-    Optimize max_speed by testing different values.
+def evaluate_config(cfg: dict, seeds: list[int]) -> tuple[float, dict]:
+    runs = [run_episode(s, cfg) for s in seeds]
+    distances = [r.distance for r in runs]
+    crashes = [r.crashed for r in runs]
 
-    Args:
-        speed_range: (min_speed, max_speed) to test
-        speed_step: Step size between tested speeds
-        num_seeds: Number of random seeds to test per speed
-        seed_start: Starting seed value
+    crash_rate = sum(crashes) / max(1, len(crashes))
+    score = mean(distances) * (1.0 - crash_rate)
 
-    Returns:
-        List of dictionaries with analysis results for each tested speed
-    """
-    # Generate test parameters
-    speeds_to_test = []
-    current_speed = speed_range[0]
-    while current_speed <= speed_range[1]:
-        speeds_to_test.append(current_speed)
-        current_speed += speed_step
+    # Optional penalties if extra metrics exist
+    # e.g., ttc_violations per km, lane_change_aborts rate
+    total_km = max(1e-6, sum(distances) / 1000.0)
+    ttc_viol = sum(r.extra.get("ttc_violations", 0) for r in runs) / total_km
+    abort_rate = sum(1 for r in runs if r.extra.get("lane_change_aborts", 0) > 0) / len(
+        runs
+    )
+    # Tune weights if you wire these up:
+    score -= 200.0 * ttc_viol
+    score -= 200.0 * abort_rate
 
-    seeds = list(range(seed_start, seed_start + num_seeds))
+    info = dict(
+        cfg=cfg,
+        num_runs=len(runs),
+        mean_distance=mean(distances),
+        crash_rate=crash_rate,
+        ttc_per_km=ttc_viol,
+        abort_rate=abort_rate,
+        min_distance=min(distances),
+        max_distance=max(distances),
+    )
+    return score, info
 
-    print(f"Optimizing max_speed over range {speed_range} with step {speed_step}")
-    print(f"Testing {len(speeds_to_test)} different speeds with {num_seeds} seeds each")
-    print(f"Total tests: {len(speeds_to_test) * num_seeds}")
-    print(f"Speeds to test: {list(speeds_to_test)}")
-    print()
 
-    all_results = []
-    analyses = []
+# --- Tuner -----------------------------------------------------------------------
+def tune(
+    num_candidates: int = 40,
+    seeds_small: int = 10,
+    seeds_big: int = 30,
+    top_k: int = 8,
+    seed_start_small: int = 100,
+    seed_start_big: int = 1000,
+):
+    random.seed(42)
 
-    # Test each speed
-    for speed in speeds_to_test:
-        speed_results = run_tests_for_speed(speed, seeds)
-        all_results.extend(speed_results)
-
-        # Analyze results for this speed
-        analysis = analyze_results(speed_results)
-        analyses.append(analysis)
-
-        print(f"Completed max_speed={speed}")
-        print(
-            f"  Distance: {analysis['distance']['mean']:.1f} ± {analysis['distance']['std']:.1f}"
+    print(f"Coarse sweep: {num_candidates} candidates × {seeds_small} seeds")
+    coarse = []
+    for i in range(num_candidates):
+        cfg = sample_config()
+        score, info = evaluate_config(
+            cfg, list(range(seed_start_small, seed_start_small + seeds_small))
         )
-        print(f"  Crash rate: {analysis['crash_rate']:.1%}")
-        print(f"  Success score: {analysis['success_score']:.1f}")
-        print()
+        info["score_small"] = score
+        coarse.append(info)
+        print(
+            f"[{i+1:3d}/{num_candidates}] score={score:9.1f} dist={info['mean_distance']:7.1f} crash={info['crash_rate']:.1%} cfg={cfg}"
+        )
 
-    # Save detailed results as JSON
-    results_data = [
-        {
-            "max_speed": r.max_speed,
-            "seed": r.seed,
-            "distance": r.distance,
-            "crashed": r.crashed,
-            "elapsed_ticks": r.elapsed_ticks,
-            "elapsed_time_ms": r.elapsed_time_ms,
-            "avg_speed": r.avg_speed,
-        }
-        for r in all_results
-    ]
+    coarse.sort(key=lambda x: x["score_small"], reverse=True)
+    finalists = coarse[:top_k]
 
-    with open("max_speed_optimization_detailed.json", "w") as f:
-        json.dump(results_data, f, indent=2)
+    print("\nRefinement around top candidates...")
+    refined = []
+    for j, f in enumerate(finalists, 1):
+        cfg2 = jitter(f["cfg"])
+        score_big, info_big = evaluate_config(
+            cfg2, list(range(seed_start_big, seed_start_big + seeds_big))
+        )
+        info_big["score_big"] = score_big
+        refined.append(info_big)
+        print(
+            f"[{j:2d}/{top_k}] score_big={score_big:9.1f} dist={info_big['mean_distance']:7.1f} crash={info_big['crash_rate']:.1%}"
+        )
 
-    return analyses
+    refined.sort(key=lambda x: x["score_big"], reverse=True)
+    return coarse, refined
 
 
+# --- Main ------------------------------------------------------------------------
 def main():
-    """Main optimization function."""
-    print("🚗 Starting max_speed optimization for HeuristicAgent")
-    print("=" * 60)
+    t0 = time.time()
+    coarse, refined = tune()
+    dt = time.time() - t0
 
-    # Run optimization
-    results_list = optimize_max_speed(
-        speed_range=(
-            27.5,
-            40,
-        ),  # Test speeds from 30 to 42.5 (focused range around current 35)
-        speed_step=2.5,  # Test every 2.5 units
-        num_seeds=20,  # 15 seeds per speed for good statistics
-        seed_start=20,
-    )
+    # Save results
+    with open("tuner_detailed.json", "w") as f:
+        json.dump(dict(coarse=coarse, refined=refined), f, indent=2)
+    best = refined[0]
+    summary = {
+        "best_cfg": best["cfg"],
+        "score_big": best["score_big"],
+        "mean_distance": best["mean_distance"],
+        "crash_rate": best["crash_rate"],
+        "ttc_per_km": best["ttc_per_km"],
+        "abort_rate": best["abort_rate"],
+        "elapsed_seconds": dt,
+        "note": "Score = mean(distance)*(1-crash) minus penalties if provided.",
+    }
+    with open("tuner_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
 
-    # Save summary results
-    with open("max_speed_optimization_summary.json", "w") as f:
-        json.dump(results_list, f, indent=2)
-
-    # Print summary
     print("\n" + "=" * 60)
-    print("OPTIMIZATION RESULTS SUMMARY")
+    print("TOP RESULTS")
     print("=" * 60)
-
-    # Sort by success score (distance * completion_rate)
-    results_sorted = sorted(
-        results_list, key=lambda x: x["success_score"], reverse=True
-    )
-
-    print("\nTop 5 performing speeds (by success score):")
-    top_5 = results_sorted[:5]
-    for row in top_5:
-        print(
-            f"  {row['max_speed']:5.1f}: "
-            f"distance={row['distance']['mean']:6.1f}±{row['distance']['std']:5.1f}, "
-            f"crash_rate={row['crash_rate']:5.1%}, "
-            f"score={row['success_score']:6.1f}"
-        )
-
-    best_speed = results_sorted[0]["max_speed"]
-    best_row = results_sorted[0]
-
-    print(f"\n🏆 RECOMMENDED MAX_SPEED: {best_speed}")
-    print(
-        f"   Average distance: {best_row['distance']['mean']:.1f} ± {best_row['distance']['std']:.1f}"
-    )
-    print(f"   Crash rate: {best_row['crash_rate']:.1%}")
-    print(f"   Success score: {best_row['success_score']:.1f}")
-    print(
-        f"   Distance percentiles: P50={best_row['distance']['distance_p50']:.1f}, "
-        f"P75={best_row['distance']['distance_p75']:.1f}, "
-        f"P90={best_row['distance']['distance_p90']:.1f}"
-    )
-
-    print(f"\nDetailed results saved to:")
-    print(f"  - max_speed_optimization_summary.json")
-    print(f"  - max_speed_optimization_detailed.json")
+    print(f"Best score: {best['score_big']:.1f}")
+    print(f"Mean distance: {best['mean_distance']:.1f}")
+    print(f"Crash rate: {best['crash_rate']:.1%}")
+    print(f"TTC/km: {best['ttc_per_km']:.2f}  Abort rate: {best['abort_rate']:.2f}")
+    print("Recommended config:")
+    for k, v in best["cfg"].items():
+        print(f"  {k}: {v}")
+    print("\nSaved: tuner_detailed.json, tuner_summary.json")
 
 
 if __name__ == "__main__":
