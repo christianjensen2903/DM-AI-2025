@@ -10,6 +10,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import rank_bm25
+from retrieval import build_retrievers
 
 nltk.download("punkt_tab")
 nltk.download("stopwords")
@@ -43,16 +44,7 @@ def preprocess_statements(
             answer = json.load(f)
         true_topic_id = answer.get("statement_topic", -1)
 
-        if normalize:
-            statement_text = normalize_medical_text(statement_text, is_query=True)
-
-        statement_text_processed = preprocess_func(
-            statement_text,
-            remove_stopwords=remove_stopwords,
-            use_stemming=use_stemming,
-        )
-
-        processed_statements.append(statement_text_processed)
+        processed_statements.append(statement_text)
         true_labels.append(true_topic_id)
         statement_paths.append(stmt_path)
 
@@ -86,7 +78,7 @@ def get_retrieval_predictions(
         processed_statements, true_labels
     ):
         # Retrieve top document(s)
-        retrieved = retriever.get_top_n(statement_text_processed, docs, n=n)
+        retrieved = retriever.invoke(statement_text_processed)
         if len(retrieved) == 0:
             # fallback: predict nothing
             y_true.append(true_topic_id)
@@ -105,7 +97,6 @@ def evaluate_bm25_config(
     k1: float,
     b: float,
     docs: list[Document],
-    texts_processed: list[list[str]],
     processed_statements: list[list[str]],
     true_labels: list[int],
 ) -> dict:
@@ -123,8 +114,7 @@ def evaluate_bm25_config(
     Returns:
         Dictionary with evaluation results
     """
-    # Create BM25Plus retriever with specified parameters
-    retriever = rank_bm25.BM25Okapi(corpus=texts_processed, k1=k1, b=b)
+    retriever = build_retrievers(docs, k1, b)
 
     # Get predictions using the extracted function
     y_true, y_pred = get_retrieval_predictions(

@@ -8,6 +8,7 @@ from langchain_core.documents import Document
 from utils import load_topics, load_cleaned_documents
 from text_normalizer import normalize_medical_text
 from bm25_retriever import preprocess_func, preprocess_statements, evaluate_bm25_config
+import traceback
 
 
 def grid_search_bm25_params(
@@ -44,33 +45,9 @@ def grid_search_bm25_params(
 
     print(f"Pre-processing documents and statements...")
 
-    # Pre-process documents once
-    if normalize:
-        texts_processed = [
-            preprocess_func(
-                normalize_medical_text(doc.page_content),
-                remove_stopwords=remove_stopwords,
-                use_stemming=use_stemming,
-            )
-            for doc in docs
-        ]
-    else:
-        texts_processed = [
-            preprocess_func(
-                doc.page_content,
-                remove_stopwords=remove_stopwords,
-                use_stemming=use_stemming,
-            )
-            for doc in docs
-        ]
-
     # Pre-process statements once
     processed_statements, true_labels, _ = preprocess_statements(
         statements_dir, answers_dir, normalize, remove_stopwords, use_stemming
-    )
-
-    print(
-        f"Pre-processing complete. Documents: {len(texts_processed)}, Statements: {len(processed_statements)}"
     )
 
     results = []
@@ -92,13 +69,13 @@ def grid_search_bm25_params(
                 k1,
                 b,
                 docs,
-                texts_processed,
                 processed_statements,
                 true_labels,
             )
             results.append(result)
             print(f"Accuracy: {result['accuracy']:.4f}")
         except Exception as e:
+            traceback.print_exc()
             print(f"ERROR: {e}")
             results.append(
                 {
@@ -206,7 +183,7 @@ def main():
     # Define parameter ranges for tuning
     # You can customize these ranges based on your needs
     k1_values = [2.0, 2.5, 3.0, 4.0]
-    b_values = [0.25, 0.5, 0.75, 1.0]
+    b_values = [0.0, 0.25, 0.5, 0.75, 1.0]
 
     remove_stopwords = False
     use_stemming = False
@@ -229,60 +206,22 @@ def main():
     print("\nResults without normalization:")
     analyze_results(results_no_norm)
 
-    # Save results
-    results_no_norm.to_csv("bm25_tuning_results_no_norm.csv", index=False)
-    print(f"Results saved to bm25_tuning_results_no_norm.csv")
-
-    # Option 2: Test with normalization
-    print("\n" + "=" * 50)
-    print("TESTING WITH NORMALIZATION")
-    print("=" * 50)
-    results_with_norm = grid_search_bm25_params(
-        docs,
-        statements_dir,
-        answers_dir,
-        k1_values=k1_values,
-        b_values=b_values,
-        normalize=True,
-        remove_stopwords=remove_stopwords,
-        use_stemming=use_stemming,
-    )
-
-    print("\nResults with normalization:")
-    analyze_results(results_with_norm)
-
-    # Save results
-    results_with_norm.to_csv("bm25_tuning_results_with_norm.csv", index=False)
-    print(f"Results saved to bm25_tuning_results_with_norm.csv")
-
     # Compare best results
     print("\n" + "=" * 50)
     print("COMPARISON")
     print("=" * 50)
     best_no_norm = results_no_norm.loc[results_no_norm["accuracy"].idxmax()]
-    best_with_norm = results_with_norm.loc[results_with_norm["accuracy"].idxmax()]
 
     print(
         f"Best without normalization: k1={best_no_norm['k1']}, b={best_no_norm['b']}, accuracy={best_no_norm['accuracy']:.4f}"
     )
-    print(
-        f"Best with normalization: k1={best_with_norm['k1']}, b={best_with_norm['b']}, accuracy={best_with_norm['accuracy']:.4f}"
-    )
 
-    if best_with_norm["accuracy"] > best_no_norm["accuracy"]:
-        print(
-            f"✓ Normalization improves performance by {best_with_norm['accuracy'] - best_no_norm['accuracy']:.4f}"
-        )
-        print(
-            f"RECOMMENDED: Use normalization with k1={best_with_norm['k1']}, b={best_with_norm['b']}"
-        )
-    else:
-        print(
-            f"✓ No normalization performs better by {best_no_norm['accuracy'] - best_with_norm['accuracy']:.4f}"
-        )
-        print(
-            f"RECOMMENDED: No normalization with k1={best_no_norm['k1']}, b={best_no_norm['b']}"
-        )
+    print(
+        f"✓ No normalization performs better by {best_no_norm['accuracy'] - best_with_norm['accuracy']:.4f}"
+    )
+    print(
+        f"RECOMMENDED: No normalization with k1={best_no_norm['k1']}, b={best_no_norm['b']}"
+    )
 
 
 if __name__ == "__main__":

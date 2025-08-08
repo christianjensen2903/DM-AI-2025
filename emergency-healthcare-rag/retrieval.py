@@ -93,7 +93,7 @@ def split_documents_by_sections(
     return split_docs
 
 
-def build_retrievers(docs):
+def build_retrievers(docs, k1=2.5, b=0.25):
     # Split documents by sections for better semantic coherence
     split_docs = split_documents_by_sections(docs)
     print(f"Split {len(docs)} documents into {len(split_docs)} section-based chunks")
@@ -109,7 +109,7 @@ def build_retrievers(docs):
     bm25_retriever = BM25Retriever.from_documents(
         split_docs,
         k=5,
-        bm25_params={"k1": 2.5, "b": 0.25},
+        bm25_params={"k1": k1, "b": b},
     )
     return bm25_retriever
 
