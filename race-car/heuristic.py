@@ -165,9 +165,9 @@ class HeuristicAgent:
         self,
         base_max_speed: float = 20.0,
         speed_ramp_rate: float = 0.01,  # m/s per tick
-        safety_ttc: float = 3.0,
-        safety_margin: float = 0.5,
-        match_tol: float = 0.5,
+        safety_ttc: float = 3.5,
+        safety_margin: float = 0.6,
+        match_tol: float = 1.2,
         max_accel_actions: int = 50,
     ):
         self.base_max_speed = base_max_speed
